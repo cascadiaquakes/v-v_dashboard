@@ -1,121 +1,115 @@
-# v-v\_dashboard (DET Viewer)
+# v-v_dashboard (DET Viewer)
 
-Dash app + AWS CDK stack for the DET \`\`viewer”.  
+Dash app + AWS CDK stack for the DET “viewer”.
 **What it does:** serves a Dash web app on ECS Fargate behind an ALB, exposes a small API Gateway endpoint for status checks, and invokes a Lambda container during uploads. Data lives in an existing S3 bucket and DynamoDB table.
 
------
+---
 
 ## CI/CD Pipeline (Recommended)
 
-This project is configured with an automated CI/CD pipeline using GitHub Actions. To deploy changes, you simply need to push your code to the `ci/test` branch.
+This repo ships with GitHub Actions. Deploys are pinned to **us-west-2** and the workflow updates the existing **`DashboardStack`** (no new stacks).
 
 ### CI (Continuous Integration)
 
-  * **Trigger:** Runs automatically on pushes to `ci/test` and on pull requests to `main`.
-  * **Actions:** Runs fast Python checks using Ruff, a linter that acts like a spell and grammar checker for code to ensure style consistency. It also runs tests with Pytest and performs sanity builds for the Dockerfiles to ensure they are valid.
+* **Trigger:** runs on pushes to `ci/test` and on PRs to `main`.
+* **Actions:** Ruff lint, pytest, and quick Docker build sanity checks.
 
 ### CD (Continuous Delivery)
 
-  * **Trigger:** Runs automatically on pushes to `ci/test`. Can also be triggered manually.
-  * **Actions:** Securely authenticates to AWS using OpenID Connect (OIDC), this allows GitHub Actions to access AWS withoutt needing to store long-lived secret keys. The workflow then builds and pushes the application and Lambda images to ECR, deploys the full infrastructure stack using the AWS CDK, and runs a smoke test to verify the live endpoints.
+* **Trigger:**
 
------
+  * Automatically on pushes to `ci/test`, **or**
+  * Manually via **Actions → deploy-dev → Run workflow** (you can use `Branch: main`).
+* **What it does:** Uses AWS **OIDC** (no stored keys), builds & pushes the app and Lambda images to **ECR in `us-west-2`**, deploys **`DashboardStack`** with CDK, then smoke-tests the ALB and status API.
+
+> The workflow also exposes a `DEPLOY_REGION` env var and is locked to `us-west-2`.
+
+---
 
 ## How to Deploy
 
-The recommended method is to use the automated pipeline.
-
-### Step 1: Push Your Code
-
-Commit your code changes and push them to the `ci/test` branch.
+### Option A — Push to the CI branch
 
 ```bash
 git push origin ci/test
 ```
 
-This will automatically trigger both the `ci` and `deploy-dev` workflows. You can monitor their progress in the "Actions" tab of the GitHub repository.
+This triggers the `ci` and `deploy-dev` workflows automatically.
 
-### Step 2: Verify the Deployment (Smoke Test)
+### Option B — Run it manually
 
-After the `deploy-dev` workflow succeeds, you can manually verify the live endpoints by fetching their URLs from the deployed CloudFormation stack.
+1. Go to **Actions → deploy-dev**.
+2. Click **Run workflow**, choose **Branch: main** (or a branch you want), leave the tag empty, and run.
 
-**Bash:**
+You can follow progress in the job logs.
+
+---
+
+## Verify the deployment (Smoke Test)
+
+Fetch the live URLs from the stack outputs and curl them:
 
 ```bash
 STACK="DashboardStack"
-REGION="us-east-2"
+REGION="us-west-2"
 
-# Get the Application Load Balancer URL
 ALB_URL=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
   --query "Stacks[0].Outputs[?OutputKey=='ServiceURL'].OutputValue" --output text)
 
-# Get the API Health Check URL
 API_URL=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
   --query "Stacks[0].Outputs[?OutputKey=='StatusAPIHealthURL'].OutputValue" --output text)
 
-echo "--- Checking ALB URL: $ALB_URL ---"
+echo "--- ALB: $ALB_URL"
 curl -fsS "$ALB_URL" | head -n 10
 
-echo ""
-echo "--- Checking API Health URL: $API_URL ---"
+echo "--- API: $API_URL"
 curl -fsS "$API_URL"
 ```
 
-### Step 3: Destroy the Environment (When Finished)
+---
 
-To save costs, destroy the development stack when you are done. The preferred method is to trigger the destroy workflow.
+## Destroy the environment (when you’re done)
 
-```bash
-gh workflow run destroy-dev.yml --ref ci/test
-```
+Preferred: run **Actions → destroy-dev → Run workflow** (choose the branch the stack was deployed from).
 
------
+---
 
 ## Local Development Setup
 
-These steps are for developers who need to run and test the application on their local machine.
+**Prereqs**
 
-### Prerequisites
 * Docker (with `buildx`)
 * AWS CLI v2
 * Python 3.9+
 * Node.js 20+ and CDK v2 (`npm i -g aws-cdk`)
 
-### 1. Environment and Dependencies
-First, create an isolated Python virtual environment and install the required packages.
+### 1) Python env & deps
 
 ```bash
-# Create the virtual environment
 python -m venv .venv
-
-# Activate the environment (macOS/Linux)
+# macOS/Linux
 source .venv/bin/activate
+# Windows PowerShell
+# .\.venv\Scripts\Activate.ps1
 
-# Or activate on Windows PowerShell
-.venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
 pip install -r cdk/requirements.txt
-````
-
-### 2\. AWS Account Login (One-Time)
-
-Log your local machine and Docker client into the target AWS account.
-
-```bash
-# Login to AWS (e.g., with SSO)
-# aws sso login --profile your-profile-name
-
-# Login Docker to the ECR registry
-export AWS_REGION=us-east-2
-export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
 ```
 
-After completing these steps, your local environment is ready for running manual builds or deployments with the `cdk` command.
+### 2) One-time AWS/ECR login (for manual builds)
 
+```bash
+export AWS_REGION=us-west-2
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
+aws ecr get-login-password --region "$AWS_REGION" \
+| docker login --username AWS --password-stdin \
+  "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+```
+
+After that, you can run `cdk synth/deploy` locally if needed.
+
+---
 
 ## Acknowledgments
 
