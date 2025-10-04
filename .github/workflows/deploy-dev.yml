@@ -12,8 +12,13 @@ on:
 permissions:
   contents: read
 
+# prevent overlapping deploys
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
 env:
-  AWS_REGION: us-west-2
+  DEPLOY_REGION: us-west-2        # <- use this everywhere (so we do nnot rely on AWS_REGION)
   STACK_NAME: DashboardStack
 
 jobs:
@@ -39,12 +44,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r cdk/requirements.txt
 
+      # quick visibility into which region will be used
+      - name: Debug region
+        run: |
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "DEPLOY_REGION=$DEPLOY_REGION"
+          echo "AWS_REGION (if set)=${AWS_REGION:-<unset>}"
+          aws --version
+          env | sort | grep -E 'AWS_|REGION|ACCOUNT' || true
+
       # OIDC: assume the deploy role (no long-lived keys)
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::818214664804:role/GitHubActionsDeployRole
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ env.DEPLOY_REGION }}
           role-session-name: gha-deploy
 
       - name: Get AWS account id
@@ -53,13 +67,15 @@ jobs:
 
       - name: Ensure ECR repos exist (idempotent)
         run: |
-          aws ecr describe-repositories --region "$AWS_REGION" --repository-names v-v_dashboard >/dev/null 2>&1 || aws ecr create-repository --region "$AWS_REGION" --repository-name v-v_dashboard
-          aws ecr describe-repositories --region "$AWS_REGION" --repository-names vv-lambda-upload >/dev/null 2>&1 || aws ecr create-repository --region "$AWS_REGION" --repository-name vv-lambda-upload
+          aws ecr describe-repositories --region "$DEPLOY_REGION" --repository-names v-v_dashboard >/dev/null 2>&1 \
+            || aws ecr create-repository --region "$DEPLOY_REGION" --repository-name v-v_dashboard
+          aws ecr describe-repositories --region "$DEPLOY_REGION" --repository-names vv-lambda-upload >/dev/null 2>&1 \
+            || aws ecr create-repository --region "$DEPLOY_REGION" --repository-name vv-lambda-upload
 
       - name: ECR login
         run: |
-          aws ecr get-login-password --region "$AWS_REGION" \
-          | docker login --username AWS --password-stdin ${{ steps.aws.outputs.id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          aws ecr get-login-password --region "$DEPLOY_REGION" \
+          | docker login --username AWS --password-stdin ${{ steps.aws.outputs.id }}.dkr.ecr.${{ env.DEPLOY_REGION }}.amazonaws.com
 
       - uses: docker/setup-buildx-action@v3
 
@@ -67,7 +83,7 @@ jobs:
       - name: Build & push app image
         env:
           TAG: ${{ inputs.tag || github.sha }}
-          REG: ${{ steps.aws.outputs.id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          REG: ${{ steps.aws.outputs.id }}.dkr.ecr.${{ env.DEPLOY_REGION }}.amazonaws.com
         run: |
           docker build -t v-v_dashboard:"$TAG" .
           docker tag  v-v_dashboard:"$TAG" "$REG"/v-v_dashboard:"$TAG"
@@ -77,7 +93,7 @@ jobs:
       - name: Build & push lambda image (Docker v2 manifest)
         env:
           TAG: ${{ inputs.tag || github.sha }}
-          REG: ${{ steps.aws.outputs.id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          REG: ${{ steps.aws.outputs.id }}.dkr.ecr.${{ env.DEPLOY_REGION }}.amazonaws.com
           DOCKER_BUILDKIT: 0
         run: |
           docker build -t vv-lambda-upload:"$TAG" -f lambda_process_uploads/Dockerfile lambda_process_uploads
@@ -86,7 +102,7 @@ jobs:
 
       - name: CDK bootstrap (idempotent)
         run: |
-          npx cdk@2 bootstrap aws://$(aws sts get-caller-identity --query Account --output text)/${AWS_REGION} || true
+          npx cdk@2 bootstrap aws://$(aws sts get-caller-identity --query Account --output text)/${DEPLOY_REGION} || true
 
       - name: CDK deploy (dev)
         run: npx cdk@2 deploy $STACK_NAME --require-approval never
@@ -94,23 +110,17 @@ jobs:
       - name: Smoke test
         env:
           STACK: ${{ env.STACK_NAME }}
-          REGION: ${{ env.AWS_REGION }}
+          REGION: ${{ env.DEPLOY_REGION }}
         run: |
           set -euo pipefail
-
           ALB_URL=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
             --query "Stacks[0].Outputs[?OutputKey=='ServiceURL'].OutputValue" --output text)
-
           API_HEALTH_URL=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
             --query "Stacks[0].Outputs[?OutputKey=='StatusAPIHealthURL'].OutputValue" --output text)
-
           echo "ALB:  $ALB_URL"
           echo "API:  $API_HEALTH_URL"
-
           echo "Checking ALB..."
           curl -fsS --max-time 20 "$ALB_URL" >/dev/null
-
           echo "Checking API health..."
           curl -fsS --max-time 20 "$API_HEALTH_URL" >/dev/null
-
           echo "Smoke test passed."
