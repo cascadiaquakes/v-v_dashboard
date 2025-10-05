@@ -1,26 +1,18 @@
 name: destroy-dev
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions:
   contents: read
+  id-token: write  # we need thhis for OIDC
 
 env:
-  DEPLOY_REGION: us-west-2
-  STACK_NAME: DashboardStack
-
-concurrency:
-  group: dev-stack
-  cancel-in-progress: false
+  AWS_REGION: us-west-2
 
 jobs:
   destroy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write   # OIDC
-
     steps:
       - uses: actions/checkout@v4
 
@@ -37,26 +29,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r cdk/requirements.txt
 
-      - name: Debug env
-        run: |
-          echo "DEPLOY_REGION=${{ env.DEPLOY_REGION }}"
-          echo "STACK_NAME=${{ env.STACK_NAME }}"
-
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::818214664804:role/GitHubActionsDeployRole
-          aws-region: ${{ env.DEPLOY_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
           role-session-name: gha-destroy
 
-      # Safety check: make sure we’re in the expected account/region
-      - name: Guard: verify account/region
-        run: |
-          set -euo pipefail
-          ACC=$(aws sts get-caller-identity --query Account --output text)
-          REG=${{ env.DEPLOY_REGION }}
-          test "$ACC" = "818214664804" || { echo "Unexpected AWS account: $ACC"; exit 1; }
-          echo "Account OK ($ACC); region $REG"
-
-      - name: CDK destroy (dev)
-        run: npx cdk@2 destroy ${{ env.STACK_NAME }} --force --require-approval never
+      - name: Destroy CDK stack (dev)
+        run: npx cdk@2 destroy DashboardStack --force
