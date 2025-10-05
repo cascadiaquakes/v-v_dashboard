@@ -5,10 +5,11 @@ on:
 
 permissions:
   contents: read
-  id-token: write  # we need thhis for OIDC
+  id-token: write   # we need thhis for OIDC
 
 env:
   AWS_REGION: us-west-2
+  STACK_NAME: DashboardStack
 
 jobs:
   destroy:
@@ -37,4 +38,4 @@ jobs:
           role-session-name: gha-destroy
 
       - name: Destroy CDK stack (dev)
-        run: npx cdk@2 destroy DashboardStack --force
+        run: npx cdk@2 destroy ${{ env.STACK_NAME }} --force
