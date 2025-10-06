@@ -15,6 +15,7 @@ from aws_cdk import (
     aws_apigateway as apigateway, CfnOutput,
 )
 from constructs import Construct
+import os
 
 
 class DashboardStack(Stack):
@@ -81,14 +82,6 @@ class DashboardStack(Stack):
             self, "VVDashboardRepo", "v-v_dashboard"
         )
 
-        # Create the S3 bucket with cleanup policies
-        # s3_bucket = s3.Bucket(
-        #     self,
-        #     "BenchmarkDataBucket",
-        #     bucket_name="benchmark-vv-data",
-        #     versioned=True,
-        #     removal_policy=RemovalPolicy.RETAIN,
-        # )
         # Reference the existing S3 bucket
         s3_bucket = s3.Bucket.from_bucket_name(
             self,
@@ -120,10 +113,23 @@ class DashboardStack(Stack):
             task_role=task_role,
         )
 
-        # Add a container to the task definition
+        # -------- dynamic tags (context/env) with safe fallbacks --------
+        app_tag = (
+            self.node.try_get_context("appTag")
+            or os.environ.get("APP_TAG")
+            or "2.1.15"   # fallback preserves current behavior
+        )
+        lambda_tag = (
+            self.node.try_get_context("lambdaTag")
+            or os.environ.get("LAMBDA_TAG")
+            or "2.0.17"   # fallback preserves current behavior
+        )
+        
+
+        # Add a container to the task definition (dynamic tag instead of hard-coded "2.1.15")
         container = task_definition.add_container(
             "DashboardContainer",
-            image=ecs.ContainerImage.from_ecr_repository(repository, "2.1.15"),
+            image=ecs.ContainerImage.from_ecr_repository(repository, app_tag),
             logging=ecs.LogDrivers.aws_logs(stream_prefix="DashboardApp"),
         )
         container.add_port_mappings(ecs.PortMapping(container_port=8050))
@@ -136,7 +142,7 @@ class DashboardStack(Stack):
             task_definition=task_definition,
             public_load_balancer=True,
         )
-        
+
         # Create an output for the Load Balancer's DNS name
         CfnOutput(self, "ServiceURL",
             value=fargate_service.load_balancer.load_balancer_dns_name
@@ -152,8 +158,6 @@ class DashboardStack(Stack):
         )
 
         # Policy for reading objects from `upload/` prefix:
-        # Allows listing the bucket (with a condition restricting it to the `upload/` prefix)
-        # and getting objects only from that prefix.
         lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
@@ -171,7 +175,6 @@ class DashboardStack(Stack):
         s3_bucket.grant_read(lambda_role, "upload/*")
         s3_bucket.grant_read(lambda_role, "benchmark_templates/*")
 
-
         # Grant write access (PutObject) on objects under public_ds/
         s3_bucket.grant_put(lambda_role, "public_ds/*")
 
@@ -180,18 +183,6 @@ class DashboardStack(Stack):
             "VvLambdaUploadRepo",
             repository_name="vv-lambda-upload",
         )
-
-    
-        # If you want to use an existing table, comment this block and use the `from_table_name` method below.
-        # Uncomment this block if you want to create a new DynamoDB table
-        # table = dynamodb.Table(
-        #     self, "DETFileProcessingStatusTable",
-        #     table_name="DETFileProcessingStatus",
-        #     partition_key=dynamodb.Attribute(name="userId", type=dynamodb.AttributeType.STRING),
-        #     sort_key=dynamodb.Attribute(name="fileId", type=dynamodb.AttributeType.STRING),
-        #     billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-        #     time_to_live_attribute="expiry",
-        # )
 
         # If you want to use an existing table, use this method
         table = dynamodb.Table.from_table_name(
@@ -202,14 +193,14 @@ class DashboardStack(Stack):
         # Grant the Lambda function permissions to read/write to DynamoDB
         table.grant_read_write_data(lambda_role)
 
-        # Lambda function to use the manually pushed Docker image
+        # Lambda function to use the Docker image (dynamic tag + deprecation fix: tag_or_digest)
         process_uploads = _lambda.DockerImageFunction(
             self,
             "ProcessUploadsLambda",
             function_name="process_uploads",
             code=_lambda.DockerImageCode.from_ecr(
                 repository=repo,
-                tag="2.0.17",
+                tag_or_digest=lambda_tag,  # <— replaces deprecated 'tag'
             ),
             timeout=Duration.minutes(8),
             memory_size=8192,
@@ -315,7 +306,6 @@ def handler(event, context):
             )
         )
 
-
         state_machine = sfn.StateMachine(
             self, "FileProcessingStateMachine",
             definition=definition,
@@ -377,7 +367,7 @@ def handler(event, context):
 
         # Output the API endpoint URL for reference
         CfnOutput(
-            self, "StatusAPIHealthURL", # <-- renamed forr clarity
+            self, "StatusAPIHealthURL",  # <-- renamed for clarity
             value=f"{api.url}status",
             description="Endpoint for checking processing status",
         )

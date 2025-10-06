@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DEPLOY_REGION: us-west-2        # <- use this everywhere (so we do nnot rely on AWS_REGION)
+  DEPLOY_REGION: us-west-2        # <- use this everywhere (so we do not rely on AWS_REGION)
   STACK_NAME: DashboardStack
 
 jobs:
@@ -104,8 +104,13 @@ jobs:
         run: |
           npx cdk@2 bootstrap aws://$(aws sts get-caller-identity --query Account --output text)/${DEPLOY_REGION} || true
 
+      # IMPORTANT: wire the same tag to CDK for ECS + Lambda
       - name: CDK deploy (dev)
-        run: npx cdk@2 deploy $STACK_NAME --require-approval never
+        run: |
+          npx cdk@2 deploy $STACK_NAME \
+            -c appTag=${{ inputs.tag || github.sha }} \
+            -c lambdaTag=${{ inputs.tag || github.sha }} \
+            --require-approval never
 
       - name: Smoke test
         env:
