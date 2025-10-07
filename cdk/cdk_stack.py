@@ -125,7 +125,7 @@ class DashboardStack(Stack):
         container = task_definition.add_container(
             "DashboardContainer",
             image=ecs.ContainerImage.from_ecr_repository(
-                repository, tag_or_digest=(app_image_tag or "2.1.15")
+                repository, tag=(app_image_tag or "2.1.15")   # <-- FIX: use tag=
             ),
             logging=ecs.LogDrivers.aws_logs(stream_prefix="DashboardApp"),
         )
