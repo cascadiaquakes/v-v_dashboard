@@ -9,11 +9,11 @@ app = cdk.App()
 app_tag = app.node.try_get_context("appTag") or os.getenv("APP_IMAGE_TAG")
 lambda_tag = app.node.try_get_context("lambdaTag") or os.getenv("LAMBDA_IMAGE_TAG")
 
-# --- Main stack (current prod/dev behavior) ---
+# --- Main stack (new cost-optimized behavior) ---
 DashboardStack(
     app,
     "DashboardStack",
-    include_ecs_private_endpoints=True,   # here we keep ECS/ECR control-plane endpoints
+    include_ecs_private_endpoints=False,  # endpoints OFF to save cost
     app_image_tag=app_tag,
     lambda_image_tag=lambda_tag,
 )
