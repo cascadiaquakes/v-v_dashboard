@@ -190,11 +190,17 @@ class DashboardStack(Stack):
         )
         table.grant_read_write_data(lambda_role)
 
-        # Lambda from ECR – use dynamic tag if provided
+        # ----- Lambda from ECR (unique name per stack to avoid collisions) -----
+        lambda_kwargs = {}
+        # Keep the classic name for the real stack, but make the test stack unique.
+        if Stack.of(self).stack_name == "DashboardStack":
+             lambda_kwargs["function_name"] = "process_uploads"
+        else:
+             lambda_kwargs["function_name"] = f"{Stack.of(self).stack_name}-process_uploads"
+
         process_uploads = _lambda.DockerImageFunction(
             self,
             "ProcessUploadsLambda",
-            function_name="process_uploads",
             code=_lambda.DockerImageCode.from_ecr(
                 repository=lambda_repo,
                 tag_or_digest=(lambda_image_tag or "2.0.17"),
@@ -203,6 +209,7 @@ class DashboardStack(Stack):
             memory_size=8192,
             environment={"TABLE_NAME": table.table_name},
             role=lambda_role,
+            **lambda_kwargs,  # <– only sets a name on the test stack
         )
 
         # Failure handler lambda
