@@ -1,24 +1,29 @@
 ﻿name: deploy-dev
 
 on:
+  # Allows manual execution from the Actions UI with optional inputs.
   workflow_dispatch:
     inputs:
       tag:
         description: "Image tag to build/push (optional; defaults to commit SHA)"
         required: false
+      stack:
+        description: "Stack to deploy (DashboardStack or DashboardStackTest)"
+        required: false
+        default: DashboardStack
   push:
     branches: [ci/test]
 
 permissions:
   contents: read
 
-# prevent overlapping deploys
+# Ensures only one deployment runs at a time for this workflow.
 concurrency:
   group: deploy-dev
   cancel-in-progress: true
 
 env:
-  DEPLOY_REGION: us-west-2        # <- use this everywhere (so we do not rely on AWS_REGION)
+  DEPLOY_REGION: us-west-2
   STACK_NAME: DashboardStack
 
 jobs:
@@ -26,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write   # required for OIDC
+      id-token: write  # Required for OIDC authentication to AWS.
 
     steps:
       - uses: actions/checkout@v4
@@ -44,16 +49,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r cdk/requirements.txt
 
-      # quick visibility into which region will be used
       - name: Debug region
         run: |
           echo "GITHUB_REF=$GITHUB_REF"
           echo "DEPLOY_REGION=$DEPLOY_REGION"
-          echo "AWS_REGION (if set)=${AWS_REGION:-<unset>}"
           aws --version
-          env | sort | grep -E 'AWS_|REGION|ACCOUNT' || true
 
-      # OIDC: assume the deploy role (no long-lived keys)
+      # Authenticates to AWS via OIDC, exchanging a GitHub token for temporary credentials.
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -65,6 +67,7 @@ jobs:
         id: aws
         run: echo "id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
 
+      # Idempotent step to create ECR repositories if they do not already exist.
       - name: Ensure ECR repos exist (idempotent)
         run: |
           aws ecr describe-repositories --region "$DEPLOY_REGION" --repository-names v-v_dashboard >/dev/null 2>&1 \
@@ -79,7 +82,6 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      # Build & push the Dash app image
       - name: Build & push app image
         env:
           TAG: ${{ inputs.tag || github.sha }}
@@ -89,32 +91,35 @@ jobs:
           docker tag  v-v_dashboard:"$TAG" "$REG"/v-v_dashboard:"$TAG"
           docker push "$REG"/v-v_dashboard:"$TAG"
 
-      # For Lambda: force classic builder so manifest is Docker v2 (Lambda-compatible)
       - name: Build & push lambda image (Docker v2 manifest)
         env:
           TAG: ${{ inputs.tag || github.sha }}
           REG: ${{ steps.aws.outputs.id }}.dkr.ecr.${{ env.DEPLOY_REGION }}.amazonaws.com
-          DOCKER_BUILDKIT: 0
+          DOCKER_BUILDKIT: 0 # Disable BuildKit to produce a Docker v2 manifest required by Lambda.
         run: |
           docker build -t vv-lambda-upload:"$TAG" -f lambda_process_uploads/Dockerfile lambda_process_uploads
           docker tag  vv-lambda-upload:"$TAG" "$REG"/vv-lambda-upload:"$TAG"
           docker push "$REG"/vv-lambda-upload:"$TAG"
 
+      # Ensures the CDK bootstrap stack exists; fails gracefully if already bootstrapped.
       - name: CDK bootstrap (idempotent)
         run: |
           npx cdk@2 bootstrap aws://$(aws sts get-caller-identity --query Account --output text)/${DEPLOY_REGION} || true
 
-      # IMPORTANT: wire the same tag to CDK for ECS + Lambda
       - name: CDK deploy (dev)
         run: |
-          npx cdk@2 deploy $STACK_NAME \
+          # Use the 'stack' input if provided, otherwise fall back to the default STACK_NAME.
+          STACK="${{ inputs.stack || env.STACK_NAME }}"
+          echo "Deploying stack: $STACK"
+          npx cdk@2 deploy "$STACK" \
             -c appTag=${{ inputs.tag || github.sha }} \
             -c lambdaTag=${{ inputs.tag || github.sha }} \
             --require-approval never
 
+      # Verifies that the primary service endpoints are responsive after deployment.
       - name: Smoke test
         env:
-          STACK: ${{ env.STACK_NAME }}
+          STACK: ${{ inputs.stack || env.STACK_NAME }}
           REGION: ${{ env.DEPLOY_REGION }}
         run: |
           set -euo pipefail
