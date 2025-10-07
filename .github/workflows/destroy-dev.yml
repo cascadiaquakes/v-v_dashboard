@@ -2,6 +2,12 @@ name: destroy-dev
 
 on:
   workflow_dispatch:
+    # Add an input to choose which stack to destroy
+    inputs:
+      stack:
+        description: "Stack to destroy (DashboardStack or DashboardStackTest)"
+        required: true
+        default: DashboardStackTest
 
 permissions:
   contents: read
@@ -9,6 +15,7 @@ permissions:
 
 env:
   AWS_REGION: us-west-2
+  # This STACK_NAME is now just a fallback as the input is preferred
   STACK_NAME: DashboardStack
 
 jobs:
@@ -38,4 +45,5 @@ jobs:
           role-session-name: gha-destroy
 
       - name: Destroy CDK stack (dev)
-        run: npx cdk@2 destroy ${{ env.STACK_NAME }} --force
+        # Use the stack name from the input, falling back to the env var
+        run: npx cdk@2 destroy ${{ inputs.stack || env.STACK_NAME }} --force
