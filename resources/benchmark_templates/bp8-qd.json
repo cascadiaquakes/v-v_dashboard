@@ -1,0 +1,107 @@
+{
+  "name": "bp8-qd",
+  "files": [
+    {
+      "name": "time_series",
+      "content": "Time-series data",
+      "graph_type": "timeseries",
+      "list_of_receivers": [
+        "fltst_strk+000dp+000",
+        "fltst_strk-200dp+000",
+        "fltst_strk+000dp+200",
+        "fltst_strk+200dp+000",
+        "fltst_strk+000dp-200",
+        "fltst_strk-200dp-200",
+        "fltst_strk-200dp+200",
+        "fltst_strk+200dp-200",
+        "fltst_strk+200dp+200"
+      ],
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "slip_2",
+          "unit": "m",
+          "description": "slip 2"
+        },
+        {
+          "name": "slip_3",
+          "unit": "m",
+          "description": "slip 3"
+        },
+        {
+          "name": "slip_rate_2",
+          "unit": "log10 m/s",
+          "description": "slip rate 2"
+        },
+        {
+          "name": "slip_rate_3",
+          "unit": "log10 m/s",
+          "description": "slip rate 3"
+        },
+        {
+          "name": "shear_stress_2",
+          "unit": "MPa",
+          "description": "shear stress 2"
+        },
+        {
+          "name": "shear_stress_3",
+          "unit": "MPa",
+          "description": "shear stress 3"
+        },
+        {
+          "name": "pore_pressure",
+          "unit": "MPa",
+          "description": "pore pressure"
+        },
+        {
+          "name": "darcy_vel_2",
+          "unit": "m/s",
+          "description": "Darcy velocity 2"
+        },
+        {
+          "name": "darcy_vel_3",
+          "unit": "m/s",
+          "description": "Darcy velocity 3"
+        },
+        {
+          "name": "state",
+          "unit": "log10 s",
+          "description": "state"
+        }
+      ],
+      "prefix": "fltst_strk",
+      "file_type": "dat"
+    },
+    {
+      "name": "global_source_parameter_time_series",
+      "content": "Global source parameter time-series data",
+      "graph_type": "timeseries",
+      "list_of_receivers": [
+        "global"
+      ],
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10 m/s",
+          "description": "Maximum slip rate"
+        },
+        {
+          "name": "moment_density_rate",
+          "unit": "N/s",
+          "description": "Moment density rate"
+        }
+      ],
+      "prefix": "global",
+      "file_type": "dat"
+    }
+  ]
+}

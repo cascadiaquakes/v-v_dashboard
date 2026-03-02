@@ -48,102 +48,175 @@ def extract_header(file_header, prefix, content):
     return file_header
 
 
-def interpolate_data(df, grid_params, k=3, power=1.0, average_duplicates=True):
-    """Regrid all numeric variables in df using k-NN inverse distance weighting (IDW).
-
-    Parameters
-    ----------
-    df : DataFrame
-        Must contain 'x' and 'y' columns and any number of numeric variables to interpolate.
-    grid_params : dict
-        {
-          "x": {"min": ..., "max": ..., "n": ...},
-          "y": {"min": ..., "max": ..., "n": ...}
-        }
-    k : int
-        Number of neighbors for weighting.
-    power : float
-        IDW power parameter. Set to 0 for uniform averaging of neighbors.
-    average_duplicates : bool
-        If True, average duplicate (x,y) rows before building the tree.
+def interpolate_data(
+    df: pd.DataFrame,
+    grid_params: dict,
+    k: int = 3,
+    power: float = 1.0,
+    average_duplicates: bool = True,
+) -> pd.DataFrame:
     """
-    print("Applying interpolation with IDW (k={}, power={})".format(k, power))
-    x_min, x_max, x_n = grid_params["x"]["min"], grid_params["x"]["max"], grid_params["x"]["n"]
-    y_min, y_max, y_n = grid_params["y"]["min"], grid_params["y"]["max"], grid_params["y"]["n"]
-    print(grid_params)
+    Regrid all numeric variables in df onto the 2D grid defined by `grid_params`.
 
-    # Average duplicate (x,y) points
+    - Axis names are inferred from grid_params keys (expects exactly 2 axes).
+    - Those axis columns must exist in df.
+    - All numeric columns except the axes are interpolated (2D IDW).
+    """
+    axes = list(grid_params.keys())
+    if len(axes) != 2:
+        raise ValueError(f"grid_params must have exactly 2 axes, got: {axes}")
+
+    a0, a1 = axes[0], axes[1]  # preserve naming from JSON
+    if a0 not in df.columns or a1 not in df.columns:
+        raise KeyError(
+            f"Axis columns {a0!r}, {a1!r} must exist in df. "
+            f"df columns: {list(df.columns)}"
+        )
+
+    # numeric variables to interpolate = all numeric except axes
+    all_numeric = df.select_dtypes(include=[np.number]).columns.tolist()
+    variables = [c for c in all_numeric if c not in (a0, a1)]
+    if not variables:
+        raise ValueError("No numeric variables found to interpolate (besides the axes).")
+
+    # Optionally average duplicate axis points
     if average_duplicates:
-        # only average numeric columns; non-numerics are dropped
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        if "x" not in numeric_cols: numeric_cols.append("x")
-        if "y" not in numeric_cols: numeric_cols.append("y")
-        dfu = (df[numeric_cols]
-               .groupby(["x", "y"], as_index=False)
-               .mean(numeric_only=True))
+        work = (df[[a0, a1] + variables]
+                .groupby([a0, a1], as_index=False)
+                .mean(numeric_only=True))
     else:
-        dfu = df.copy()
+        work = df[[a0, a1] + variables].copy()
 
     # Build query grid
-    xi = np.linspace(x_min, x_max, x_n)
-    yi = np.linspace(y_min, y_max, y_n)
+    xi = np.linspace(grid_params[a0]["min"], grid_params[a0]["max"], int(grid_params[a0]["n"]))
+    yi = np.linspace(grid_params[a1]["min"], grid_params[a1]["max"], int(grid_params[a1]["n"]))
     X, Y = np.meshgrid(xi, yi, indexing="xy")
     grid_points = np.column_stack([X.ravel(), Y.ravel()])
 
-    # KDTree on unique points
-    pts = dfu[["x", "y"]].to_numpy()
+    # KDTree query
+    pts = work[[a0, a1]].to_numpy()
     n_pts = len(pts)
     if n_pts == 0:
         raise ValueError("No input points to interpolate.")
 
-    k_eff = min(k, n_pts)  # in case dataset smaller than k
+    k_eff = min(int(k), n_pts)
     tree = KDTree(pts)
     dist, ind = tree.query(grid_points, k=k_eff)
 
-    # Prepare variables to interpolate (numeric, excluding x,y)
-    all_numeric = dfu.select_dtypes(include=[np.number]).columns.tolist()
-    variables = [c for c in all_numeric if c not in ("x", "y")]
-    if not variables:
-        raise ValueError("No numeric variables (besides x,y) found to interpolate.")
-
-        # Compute weights (IDW or uniform if power==0)
+    # Weights
     if power == 0:
-        # uniform weights across k neighbors
         weights = np.full_like(dist, 1.0 / dist.shape[1], dtype=float)
     else:
-        # IDW weights; handle exact matches by setting that weight to 1
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide="ignore"):
             w = 1.0 / (np.power(dist, power) + 1e-12)
-        # If any distance is effectively zero for a row, make that neighbor carry full weight
+
+        # exact matches: give all weight to the zero-distance neighbor(s)
         zero_rows = np.any(dist < 1e-12, axis=1)
         if np.any(zero_rows):
-            # For rows with zeros, zero all weights then set zeros to 1 (if multiple zeros, they’ll share equally)
             w[zero_rows] = 0.0
-            zero_mask = dist[zero_rows] < 1e-12
-            # Normalize per-row among the zero-distance neighbors (could be >1 if duplicates landed exactly on grid)
-            w[zero_rows] = zero_mask / zero_mask.sum(axis=1, keepdims=True)
-        # Normalize remaining rows
+            zmask = dist[zero_rows] < 1e-12
+            w[zero_rows] = zmask / zmask.sum(axis=1, keepdims=True)
+
         row_sums = w.sum(axis=1, keepdims=True)
-        # Safeguard in case of any weird numerical issue
         row_sums[row_sums == 0] = 1.0
         weights = w / row_sums
 
-    # Interpolate each variable with the weights
-    out = {}
+    # Interpolate
+    out = {a0: grid_points[:, 0], a1: grid_points[:, 1]}
     for var in variables:
-        print(f"Interpolating {var} (k={k_eff}, power={power})")
-        vals = dfu[var].to_numpy()
-        # Gather neighbor values for each grid point and apply weights
-        neigh_vals = vals[ind]  # shape (n_grid, k_eff)
+        vals = work[var].to_numpy()
+        neigh_vals = vals[ind]
         out[var] = np.sum(weights * neigh_vals, axis=1)
 
-    # Return flat DataFrame like your original (x,y alongside all variables)
-    out["x"] = grid_points[:, 0]
-    out["y"] = grid_points[:, 1]
-    interpolated_df = pd.DataFrame(out)
+    return pd.DataFrame(out)
 
-    return interpolated_df
 
+def read_table_from_string(file_content: str) -> pd.DataFrame:
+    return pd.read_csv(StringIO(file_content), comment="#", sep=r"\s+")
+
+
+def read_seas_slip_long_from_string(
+    content: str,
+    *,
+    z_name: str = "z",
+    t_name: str = "t",
+    slip_name: str = "slip",
+    max_slip_rate_name: str = "max_slip_rate",
+    keep_max_slip_rate: bool = True,
+    n_header_zeros: int = 2,
+    min_fields_for_axis_row: int = 10,
+) -> pd.DataFrame:
+    lines = content.splitlines(True)
+
+    def is_float(s: str) -> bool:
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
+
+    # find the axis row (many numeric fields)
+    x_idx = None
+    for i, ln in enumerate(lines):
+        if ln.lstrip().startswith("#"):
+            continue
+        parts = ln.split()
+        if len(parts) > min_fields_for_axis_row and all(is_float(p) for p in parts):
+            x_idx = i
+            break
+    if x_idx is None:
+        raise ValueError("Could not find axis row (many numeric fields).")
+
+    z = np.array(lines[x_idx].split(), dtype=float)
+    if n_header_zeros:
+        z = z[n_header_zeros:]
+
+    expected_len = len(z) + 2  # t + max_slip_rate + slip(z...)
+
+    rows = []
+    for ln in lines[x_idx + 1:]:
+        if ln.lstrip().startswith("#"):
+            continue
+        parts = ln.split()
+        if len(parts) != expected_len:
+            continue
+        if not all(is_float(p) for p in parts):
+            continue
+        rows.append(parts)
+
+    if not rows:
+        raise ValueError("No data rows found matching expected length.")
+
+    data = np.array(rows, dtype=float)
+    t = data[:, 0]
+    max_sr = data[:, 1]
+    slip = data[:, 2:]  # (nt, nz)
+
+    out = {
+        t_name: np.repeat(t, len(z)),
+        z_name: np.tile(z, len(t)),
+        slip_name: slip.reshape(-1),
+    }
+    if keep_max_slip_rate:
+        out[max_slip_rate_name] = np.repeat(max_sr, len(z))
+
+    return pd.DataFrame(out)
+
+def read_data_for_template(file_content: str, file_info: dict) -> pd.DataFrame:
+    """
+    Choose how to parse file_content based on template config.
+    Legacy default is the current whitespace-table reader.
+    """
+    reader = file_info.get("reader", "table")
+    reader_kwargs = file_info.get("reader_kwargs", {}) or {}
+
+    if reader == "table":
+        return read_table_from_string(file_content)
+
+    if reader in ("seas_slip_long", "seas_slip_long_from_axis"):
+        return read_seas_slip_long_from_string(file_content, **reader_kwargs)
+
+    raise ValueError(f"Unknown reader '{reader}' for prefix={file_info.get('prefix')}")
 
 def process_zip(bucket_name, zip_key, benchmark_pb, code_name, version, user_metadata=None, **kwargs):
     output_folder = f"/tmp/{code_name}_{version}/"
@@ -186,7 +259,7 @@ def process_zip(bucket_name, zip_key, benchmark_pb, code_name, version, user_met
                     if prefix not in file_header:
                         file_header = extract_header(file_header, prefix, file_content)
 
-                    df = pd.read_csv(StringIO(file_content), comment='#', sep='\s+')
+                    df = read_data_for_template(file_content, expected_structure)
 
                     # Validate columns
                     var_list = expected_structure['var_list']
