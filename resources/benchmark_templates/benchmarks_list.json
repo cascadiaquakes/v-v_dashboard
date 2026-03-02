@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "updatedAt": "2026-02-27T00:00:00Z",
+  "groups": {
+    "public": [
+      {
+        "id": "ttpv1",
+        "prefix": "public_ds/ttpv1/"
+      },
+      {
+        "id": "ttpv2",
+        "prefix": "public_ds/ttpv2/"
+      },
+      {
+        "id": "bp8-qd",
+        "prefix": "public_ds/bp8-qd/"
+      },
+      {
+        "id": "bp1-qd",
+        "prefix": "public_ds/bp1-qd/"
+      },
+      {
+        "id": "bp8-qd-slip2Evolution",
+        "prefix": "public_ds/bp8-qd-slip2Evolution/"
+      }
+    ],
+    "upload": [
+      {
+        "id": "ttpv1",
+        "prefix": "upload/ttpv1/"
+      },
+      {
+        "id": "ttpv2",
+        "prefix": "upload/ttpv2/"
+      },
+      {
+        "id": "bp8-qd",
+        "prefix": "upload/bp8-qd/"
+      },
+      {
+        "id": "bp1-qd",
+        "prefix": "upload/bp1-qd/"
+      },
+      {
+        "id": "bp8-qd-slip2Evolution",
+        "prefix": "upload/bp8-qd-slip2Evolution/"
+      }
+    ]
+  }
+}
