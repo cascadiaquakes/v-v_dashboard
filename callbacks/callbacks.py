@@ -119,13 +119,7 @@ def get_callbacks(app):
                 axes = (axes[1], axes[0])
             axis_meta = _axis_meta_from_file_params(file_params) if file_params else {}
 
-            unit = axis_meta.get(surface_cross_axis, {}).get("unit", "")
             cross_section_value = slider_gc_surface
-
-            # if unit == "m":
-            #     cross_section_value = slider_gc_surface * 1000.0  # km -> m for plotting
-            # else:
-            #     cross_section_value = slider_gc_surface
 
             main_graph, main_graph_style = main_surface_plot_dynamic_v2(
                 ds_update,
@@ -361,7 +355,6 @@ def get_callbacks(app):
 
                 # build meta from var_list so we can label slider units nicely
                 meta = {v.get("name"): v for v in (file.get("var_list") or [])}
-                unit = meta.get(default_cross_axis, {}).get("unit", "")
                 xaxis_options = list_vars.copy()
                 if 't' not in xaxis_options:
                     xaxis_options.append('t')
@@ -446,15 +439,6 @@ def get_callbacks(app):
         meta = {v.get("name"): v for v in (file_params.get("var_list") or [])}
         unit = (meta.get(cross_axis, {}) or {}).get("unit", "")
 
-        span_m = vmax - vmin
-
-        # show_km = (unit == "m") and (abs(span_m) >= 2000.0)
-        #
-        # if show_km:
-        #     ui_min = vmin / 1000.0
-        #     ui_max = vmax / 1000.0
-        #     ui_unit = "km"
-        # else:
         ui_min = vmin
         ui_max = vmax
         ui_unit = unit if unit else "units"
