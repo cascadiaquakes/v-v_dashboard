@@ -354,7 +354,6 @@ def get_callbacks(app):
                 default_cross_axis = axes[1] if len(axes) == 2 else ""  # default: keep your old "y-like" behavior
 
                 # build meta from var_list so we can label slider units nicely
-                meta = {v.get("name"): v for v in (file.get("var_list") or [])}
                 xaxis_options = list_vars.copy()
                 if 't' not in xaxis_options:
                     xaxis_options.append('t')
