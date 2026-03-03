@@ -122,8 +122,6 @@ def main_surface_plot_dynamic_v2(
             print(f"[WARN] cross_axis={cross_axis!r} not in axes={axes}; defaulting to {a1!r}")
             cross_axis = a1
 
-        profile_axis = a0 if cross_axis == a1 else a1  # the axis you vary along in the slice
-
         def axis_label(a):
             u = axis_meta.get(a, {}).get("unit", "")
             return f"{a} ({u})" if u else a
