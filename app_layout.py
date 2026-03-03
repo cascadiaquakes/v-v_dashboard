@@ -193,8 +193,22 @@ def get_main_page():
                                                                             width=6)
                                                                     ])
                                                                 ]),
-                                                                dbc.Label(
-                                                                    "Cross section slider (move cross section along y axis) in km"),
+                                                                dbc.Label("Cross section axis (hold constant)"),
+                                                                dbc.Select(
+                                                                    id="surface-cross-axis",
+                                                                    options=[],
+                                                                    # filled dynamically from template grid keys
+                                                                    value=""
+                                                                ),
+
+                                                                dbc.Checklist(
+                                                                    id="surface-switch-axis",
+                                                                    options=[
+                                                                        {"label": "Switch axis", "value": "switch"}],
+                                                                    value=[],
+                                                                    switch=True,
+                                                                ),
+                                                                dbc.Label(id="surface-slider-label"),
                                                                 dcc.Slider(id='slider-gc-surface',
                                                                            min=-100,
                                                                            max=100,
@@ -277,6 +291,33 @@ def get_main_page():
                                 width=9)
                         ])
                 ]),
+            dbc.Modal(
+                id="welcome-modal",
+                is_open=False,
+                centered=True,
+                size="lg",
+                children=[
+                    dbc.ModalHeader(dbc.ModalTitle("Welcome to the DET platform")),
+                    dbc.ModalBody([
+                        html.P("Pick a benchmark to get started:"),
+                        html.Div(id="benchmarks-list-ui"),
+                        html.Hr(),
+                        html.P([
+                            "Main website: ",
+                            html.A(
+                                "https://cascadiaquakes.org/det/",
+                                href="https://cascadiaquakes.org/det/",
+                                target="_blank",
+                                rel="noopener noreferrer",
+                            )
+                        ])
+                    ]),
+                    dbc.ModalFooter(
+                        dbc.Button("Close", id="welcome-close", color="secondary")
+                    ),
+                ],
+            ),
             # store user's dataset
-            dcc.Store(id='benchmark-params')
+            dcc.Store(id='benchmark-params'),
+            dcc.Store(id="benchmarks-list-store")
         ])
