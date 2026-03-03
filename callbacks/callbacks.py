@@ -1,11 +1,34 @@
 import dash
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 from callbacks.plots import main_time_plot_dynamic, main_surface_plot_dynamic_v2, cross_section_plots
 from callbacks.utils import get_df, get_upload_df, fetch_group_names_for_benchmark, get_metadata, get_benchmark_params, \
-    get_plots_from_json
+    get_plots_from_json, get_benchmarks_list
 from dash import ctx, no_update, html
+import dash_bootstrap_components as dbc
 
+
+
+# some helpers
+
+def _axes_from_file_params(file_params: dict) -> tuple[str, str]:
+    grid = file_params.get("grid", {}) or {}
+    axes = list(grid.keys())
+    if len(axes) != 2:
+        # legacy fallback
+        return ("x", "y")
+    return axes[0], axes[1]  # preserve JSON order
+
+
+def _axis_meta_from_file_params(file_params: dict) -> dict:
+    # build a {varname: {unit, description}} mapping from var_list
+    meta = {}
+    for v in (file_params.get("var_list") or []):
+        name = v.get("name")
+        if name:
+            meta[name] = {"unit": v.get("unit", ""), "description": v.get("description", "")}
+    return meta
 
 def get_callbacks(app):
     @app.callback(dash.dependencies.Output('main-graph', 'figure'),
@@ -30,11 +53,13 @@ def get_callbacks(app):
                       dash.dependencies.State('upload-data', 'filename'),
                       dash.dependencies.State('colorbar-min', 'value'),
                       dash.dependencies.State('colorbar-max', 'value'),
+                      dash.dependencies.State('surface-cross-axis', 'value'),
+                      dash.dependencies.State('surface-switch-axis', 'value'),
                   ]
                   )
     def display_plots(ds_update_clicks, graph_control_nclick, benchmark_params, file_type_name, dataset_list, receiver,
                       benchmark_id, slider_gc_surface, surface_plot_type, surface_plot_var, x_axis_sel, current_fig, upload_data,
-                      filename, colorbar_min, colorbar_max):
+                      filename, colorbar_min, colorbar_max,surface_cross_axis , surface_switch_axis ):
         """
         Update the time-series graph based on user inputs.
 
@@ -62,6 +87,7 @@ def get_callbacks(app):
         list_df = []
         plot_type = next((file['graph_type'] for file in benchmark_params['files'] if file['name'] == file_type_name),
                          None)
+        file_params = next((f for f in benchmark_params["files"] if f["name"] == file_type_name), None)
         plots_list = get_plots_from_json(benchmark_params, file_type_name)
         if ds_update_clicks is not None or graph_control_nclick is not None:
             selected_df = get_df(benchmark_id, dataset_list, receiver)
@@ -84,12 +110,46 @@ def get_callbacks(app):
         if plot_type == 'surface':
             fig = go.Figure()
             slider_only = False
-            plot_params = [item for item in plots_list if item['name'] == surface_plot_var][0]
-            cross_section_value = slider_gc_surface*1000 #switch back to m from km
-            main_graph, main_graph_style = main_surface_plot_dynamic_v2(ds_update, fig, plot_params, surface_plot_type,
-                                                                      cross_section_value, slider_only, colorbar_min, colorbar_max)
-            sub_graph = cross_section_plots(ds_update, plot_params, cross_section_value)
-            sub_graph_style = {'display': 'block'}
+
+            plot_params = [item for item in plots_list if item["name"] == surface_plot_var][0]
+
+            # derive axes from the file template JSON
+            axes = _axes_from_file_params(file_params) if file_params else ("x", "y")
+            if "switch" in (surface_switch_axis or []):
+                axes = (axes[1], axes[0])
+            axis_meta = _axis_meta_from_file_params(file_params) if file_params else {}
+
+            unit = axis_meta.get(surface_cross_axis, {}).get("unit", "")
+            cross_section_value = slider_gc_surface
+
+            # if unit == "m":
+            #     cross_section_value = slider_gc_surface * 1000.0  # km -> m for plotting
+            # else:
+            #     cross_section_value = slider_gc_surface
+
+            main_graph, main_graph_style = main_surface_plot_dynamic_v2(
+                ds_update,
+                fig,
+                plot_params,
+                surface_plot_type,
+                cross_section_value,
+                slider_only,
+                colorbar_min,
+                colorbar_max,
+                axes=axes,
+                cross_axis=surface_cross_axis,
+                axis_meta=axis_meta,
+            )
+
+            sub_graph = cross_section_plots(
+                ds_update,
+                plot_params,
+                cross_section_value,
+                axes=axes,
+                cross_axis=surface_cross_axis,
+                axis_meta=axis_meta,
+            )
+            sub_graph_style = {"display": "block"}
         else:
             x_axis = next((item for item in plots_list if item['name'] == x_axis_sel), plots_list[0])
 
@@ -114,7 +174,7 @@ def get_callbacks(app):
                     html.Span("Metadata: "),
                     html.A(file, href='#', id={'type': 'file-link', 'index': file}),
                 ],
-                style={'margin-bottom': '10px'}
+                style={'marginBottom': '10px'}
             )
             for file in dataset_list or []  # Handle case if dataset_list is None
         ]
@@ -185,26 +245,59 @@ def get_callbacks(app):
         return links
 
     @app.callback(
-        dash.dependencies.Output('benchmark-params', 'data'),
-        dash.dependencies.Output('redirect', 'href'),
-        [dash.dependencies.Input('url', 'search')]
+        dash.dependencies.Output("benchmark-params", "data"),
+        dash.dependencies.Output("redirect", "href"),
+        dash.dependencies.Output("welcome-modal", "is_open"),
+        dash.dependencies.Output("benchmarks-list-store", "data"),
+        dash.dependencies.Input("url", "search"),
+        dash.dependencies.Input("welcome-close", "n_clicks"),
+        dash.dependencies.State("welcome-modal", "is_open"),
+        prevent_initial_call=False,
     )
-    def load_benchmark_params(search):
-        """
-        Update the benchmark_params based on the benchmark_id in the URL.
+    def load_benchmark_params(search, close_clicks, modal_is_open):
+        # Which input triggered?
+        trigger = dash.callback_context.triggered[0]["prop_id"].split(".")[
+            0] if dash.callback_context.triggered else None
 
-        Parameters:
-        search (str): Name of the selected benchmark in the url
+        # 1) Close button wins: just close the modal, don't touch anything else
+        if trigger == "welcome-close":
+            return no_update, no_update, False, no_update
 
-        Returns:
-        list: List of available files type.
-        """
+        # 2) Otherwise, we're here because url.search fired (initial load or navigation)
         try:
-            benchmark_params = get_benchmark_params(search)
-            return benchmark_params, no_update
+            benchmark_params = get_benchmark_params(search)  # unchanged
+            return benchmark_params, no_update, False, no_update
         except Exception as e:
             print(f"Error fetching benchmark params: {e}")
-            return None, 'https://cascadiaquakes.org/det/'
+
+            try:
+                blist = get_benchmarks_list()
+            except Exception as e2:
+                print(f"Error loading benchmarks list: {e2}")
+                blist = None
+
+            return None, no_update, True, blist
+
+    @app.callback(
+        dash.dependencies.Output("benchmarks-list-ui", "children"),
+        dash.dependencies.Input("benchmarks-list-store", "data"),
+    )
+    def render_benchmark_links(blist):
+        if not blist:
+            return dbc.Alert("Could not load benchmark list.", color="warning")
+
+        public_items = (blist.get("groups", {}).get("public", []) or [])
+        if not public_items:
+            return dbc.Alert("No public benchmarks found.", color="warning")
+
+        # Each link is a plain href that sets the querystring like you said
+        return dbc.ListGroup([
+            dbc.ListGroupItem(
+                html.A(item["id"], href=f"?benchmark_id={item['id']}")
+            )
+            for item in public_items
+        ])
+
 
     @app.callback(
         dash.dependencies.Output('file-type-selector', 'options'),
@@ -232,7 +325,10 @@ def get_callbacks(app):
          dash.dependencies.Output('surface-plot-var', 'options'),
          dash.dependencies.Output('surface-plot-var', 'value'),
          dash.dependencies.Output('time-xaxis-var', 'options'),
-         dash.dependencies.Output('time-xaxis-var', 'value')
+         dash.dependencies.Output('time-xaxis-var', 'value'),
+         dash.dependencies.Output('surface-cross-axis', 'options'),
+         dash.dependencies.Output('surface-cross-axis', 'value'),
+         dash.dependencies.Output('surface-switch-axis', 'value'),
          ],
 
         [dash.dependencies.Input('file-type-selector', 'value')],
@@ -255,8 +351,27 @@ def get_callbacks(app):
         for file in benchmark_params['files']:
             if file['name'] == file_selected:
                 list_vars = [var['name'] for var in get_plots_from_json(benchmark_params, file_selected)]
-                # returning list vars for file type selected + time (t) for the time series
-                return file['list_of_receivers'], file['list_of_receivers'][0], list_vars, list_vars[-1], list_vars+['t'], 't'
+
+                # axes from template grid keys (preserve order)
+                grid = file.get("grid", {}) or {}
+                axes = list(grid.keys())
+
+                cross_axis_opts = [{"label": a, "value": a} for a in axes] if len(axes) == 2 else []
+                default_cross_axis = axes[1] if len(axes) == 2 else ""  # default: keep your old "y-like" behavior
+
+                # build meta from var_list so we can label slider units nicely
+                meta = {v.get("name"): v for v in (file.get("var_list") or [])}
+                unit = meta.get(default_cross_axis, {}).get("unit", "")
+                xaxis_options = list_vars.copy()
+                if 't' not in xaxis_options:
+                    xaxis_options.append('t')
+                return (
+                    file['list_of_receivers'], file['list_of_receivers'][0],
+                    list_vars, list_vars[-1],
+                    xaxis_options, 't',
+                    cross_axis_opts, default_cross_axis,
+                    [],  # reset switch checkbox
+                )
         return no_update
 
     @app.callback(
@@ -280,3 +395,103 @@ def get_callbacks(app):
         else:
             return {"display": "none"}, {"display": "block"}
 
+    @app.callback(
+        dash.dependencies.Output("slider-gc-surface", "min"),
+        dash.dependencies.Output("slider-gc-surface", "max"),
+        dash.dependencies.Output("slider-gc-surface", "step"),
+        dash.dependencies.Output("slider-gc-surface", "marks"),
+        dash.dependencies.Output("slider-gc-surface", "value"),
+        dash.dependencies.Output("surface-slider-label", "children"),
+        dash.dependencies.Input("file-type-selector", "value"),
+        dash.dependencies.Input("surface-cross-axis", "value"),
+        dash.dependencies.Input("surface-switch-axis", "value"),
+        dash.dependencies.State("benchmark-params", "data"),
+        dash.dependencies.State("slider-gc-surface", "value"),
+    )
+    def update_surface_slider(file_type_name, cross_axis, switch_axis_value,
+                              benchmark_params, current_value):
+
+        # ---- Basic guards ----
+        if not benchmark_params or not file_type_name:
+            return -100.0, 100.0, 1.0, {}, 0.0, "Cross section slider"
+
+        file_params = next(
+            (f for f in benchmark_params.get("files", [])
+             if f.get("name") == file_type_name),
+            None
+        )
+        if not file_params:
+            return -100.0, 100.0, 1.0, {}, 0.0, "Cross section slider"
+
+        grid = file_params.get("grid", {}) or {}
+        axes = list(grid.keys())
+        if len(axes) != 2:
+            return -100.0, 100.0, 1.0, {}, 0.0, "Cross section slider"
+
+        a0, a1 = axes[0], axes[1]
+        if switch_axis_value and "switch" in switch_axis_value:
+            a0, a1 = a1, a0
+
+        if not cross_axis or cross_axis not in (a0, a1):
+            cross_axis = a1
+
+        g = grid.get(cross_axis)
+        if not g:
+            return -100.0, 100.0, 1.0, {}, 0.0, f"Cross section slider along {cross_axis}"
+
+        vmin = float(g["min"])
+        vmax = float(g["max"])
+
+        # ---- Optional: adaptive m → km conversion ----
+        meta = {v.get("name"): v for v in (file_params.get("var_list") or [])}
+        unit = (meta.get(cross_axis, {}) or {}).get("unit", "")
+
+        span_m = vmax - vmin
+
+        # show_km = (unit == "m") and (abs(span_m) >= 2000.0)
+        #
+        # if show_km:
+        #     ui_min = vmin / 1000.0
+        #     ui_max = vmax / 1000.0
+        #     ui_unit = "km"
+        # else:
+        ui_min = vmin
+        ui_max = vmax
+        ui_unit = unit if unit else "units"
+
+        span = ui_max - ui_min if ui_max != ui_min else 1.0
+
+        # ---- Step: smooth but not insane ----
+        ui_step = span / 500.0  # about 500 drag positions
+
+        # ---- 9 evenly spaced ticks ----
+        tick_vals = np.linspace(ui_min, ui_max, 9)
+
+        def fmt_compact(x: float) -> str:
+            x = float(x)
+            ax = abs(x)
+
+            if ax >= 1_000_000_000:
+                return f"{x / 1_000_000_000:.3g}B"
+            if ax >= 1_000_000:
+                return f"{x / 1_000_000:.3g}M"
+            if ax >= 1_000:
+                return f"{x / 1_000:.3g}k"
+
+            # small numbers
+            if span >= 10:
+                return f"{x:.1f}".rstrip("0").rstrip(".")
+            return f"{x:.2f}".rstrip("0").rstrip(".")
+
+        marks = {int(v): fmt_compact(v) for v in tick_vals}
+
+        # ---- Clamp value ----
+        if current_value is None:
+            ui_value = float((ui_min + ui_max) / 2.0)
+        else:
+            ui_value = float(current_value)
+            ui_value = max(ui_min, min(ui_max, ui_value))
+
+        label = f"Cross section slider (hold {cross_axis} constant) in {ui_unit}"
+
+        return float(ui_min), float(ui_max), float(ui_step), marks, float(ui_value), label
