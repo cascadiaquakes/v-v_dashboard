@@ -94,194 +94,277 @@ def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s
     return fig, {'width': '100%', 'height': dynamic_height}
 
 
-def main_surface_plot_dynamic_v2(df, old_fig, variable_dict, plot_type="3d_surface", slider=0, slider_only=False, colorbar_min=None, colorbar_max=None):
+def main_surface_plot_dynamic_v2(
+    df,
+    old_fig,
+    variable_dict,
+    plot_type="3d_surface",
+    slider=0,
+    slider_only=False,
+    colorbar_min=None,
+    colorbar_max=None,
+    *,
+    axes=("x", "y"),
+    cross_axis=None,
+    axis_meta=None,
+):
     """
-    Generate a dynamic plot with subplots based on a list of variable dictionaries.
-
-    Parameters:
-    df (pd.DataFrame): DataFrame containing the dataset.
-    old_fig (go.Figure): Previous figure state (for partial updates).
-    variable_dict (dict): Dictionary with keys 'name', 'unit', and 'description'.
-    plot_type (str): Type of plot ("3d_surface" or "heatmap").
-    slider (int): Current slider position (index for cross-section).
-    slider_only (bool): If True, only update the cross-section, otherwise regenerate the figure.
-
-    Returns:
-    go.Figure: Plotly figure object.
+    axes: (a0, a1) are the two grid axes in df. Slider is applied along a1.
     """
     try:
-        print(f"colorbar_max: {colorbar_max}, colorbar_min: {colorbar_min}")
+        a0, a1 = axes
+        axis_meta = axis_meta or {}
 
-        datasets = df['dataset_name'].unique()
+        if cross_axis is None:
+            cross_axis = a1  # preserve old behavior
+
+        if cross_axis not in (a0, a1):
+            print(f"[WARN] cross_axis={cross_axis!r} not in axes={axes}; defaulting to {a1!r}")
+            cross_axis = a1
+
+        profile_axis = a0 if cross_axis == a1 else a1  # the axis you vary along in the slice
+
+        def axis_label(a):
+            u = axis_meta.get(a, {}).get("unit", "")
+            return f"{a} ({u})" if u else a
+
+        datasets = df["dataset_name"].unique()
         num_ds = len(datasets)
-        num_rows = num_ds//2 + num_ds % 2
+        num_rows = num_ds // 2 + num_ds % 2
         num_cols = 1 if num_ds == 1 else 2
 
-        print(f"variable_dict: {variable_dict}")
         if colorbar_max is None:
-            colorbar_max = df[variable_dict['name']].max()
+            colorbar_max = df[variable_dict["name"]].max()
         if colorbar_min is None:
-            colorbar_min = df[variable_dict['name']].min()
-        print(f"colorbar_max: {colorbar_max}, colorbar_min: {colorbar_min}")
-
-        print(f"num_ds: {num_ds}, num_rows: {num_rows}, num_cols: {num_cols}, slider: {slider}")
+            colorbar_min = df[variable_dict["name"]].min()
 
         fig = make_subplots(
             rows=num_rows,
             cols=num_cols,
-            specs=[[{'type': 'surface' if plot_type == "3d_surface" else 'heatmap'}] * num_cols] if num_ds == 1 else [
-                [{'type': 'surface' if plot_type == "3d_surface" else 'heatmap'} for _ in range(num_cols)]
-                for _ in range(num_rows)
-            ],
+            specs=[[{"type": "surface" if plot_type == "3d_surface" else "heatmap"}] * num_cols]
+            if num_ds == 1
+            else [[{"type": "surface" if plot_type == "3d_surface" else "heatmap"} for _ in range(num_cols)]
+                  for _ in range(num_rows)],
             subplot_titles=[f"Dataset: {name}" for name in datasets],
             vertical_spacing=0.1,
             horizontal_spacing=0.08,
         )
 
         for i, dataset_name in enumerate(datasets):
-            print(f"Plotting dataset: {dataset_name}")
             row = (i // num_cols) + 1
             col = (i % num_cols) + 1
-            dataset_df = df[df['dataset_name'] == dataset_name]
-            slider_idx = dataset_df.loc[(df['y'] - slider).abs().idxmin(), 'y']
+            dataset_df = df[df["dataset_name"] == dataset_name]
 
-            x_unique = dataset_df['x'].unique()
-            y_unique = dataset_df['y'].unique()
-            v_disp_2d = dataset_df.pivot(index="y", columns="x", values=variable_dict["name"]).values
+            cross_vals = np.sort(dataset_df[cross_axis].unique())
+            slider_val = cross_vals[np.abs(cross_vals - slider).argmin()]
+
+            a0_unique = np.sort(dataset_df[a0].unique())
+            a1_unique = np.sort(dataset_df[a1].unique())
+
+            v_2d = dataset_df.pivot(index=a1, columns=a0, values=variable_dict["name"]).values
 
             if plot_type == "3d_surface":
-                fig.add_trace(go.Surface(
-                    x=x_unique,
-                    y=y_unique,
-                    z=v_disp_2d,
-                    colorscale='RdBu_r',
-                    cmin=-colorbar_min,
-                    cmax=colorbar_max,
-                    colorbar=dict(title=f"{variable_dict['name']} ({variable_dict['unit']})")
-                ), row=row, col=col)
+                fig.add_trace(
+                    go.Surface(
+                        x=a0_unique,
+                        y=a1_unique,
+                        z=v_2d,
+                        colorscale="RdBu_r",
+                        cmin=colorbar_min,
+                        cmax=colorbar_max,
+                        colorbar=dict(title=f"{variable_dict['name']} ({variable_dict['unit']})"),
+                    ),
+                    row=row,
+                    col=col,
+                )
 
-                scene_key = f'scene{i + 1}' if i > 0 else 'scene'
-                #
-                # # Add black cross-section line in the 3D scene
-                y_index = np.abs(y_unique - slider_idx).argmin()
-                fig.add_trace(go.Scatter3d(
-                    x=x_unique,
-                    y=[y_unique[y_index]] * len(x_unique),
-                    z=dataset_df[dataset_df['y'] == slider_idx][variable_dict['name']],
-                    mode='lines',
-                    line=dict(color='black', width=3),
-                    showlegend=False,
-                    scene=scene_key  # Assign to correct 3D scene
-                ), row=row, col=col)
+                scene_key = f"scene{i + 1}" if i > 0 else "scene"
 
-                fig.update_layout({
-                    scene_key: dict(
-                        xaxis=dict(title='x (m)'),
-                        yaxis=dict(title='y (m)'),
-                        zaxis=dict(title=f"{variable_dict['name']} ({variable_dict['unit']})")
-                    )
-                })
+                # cross-section line at a1 = slider_val
+                if cross_axis == a1:
+                    # constant a1 (horizontal slice), vary a0
+                    a1_index = np.abs(a1_unique - slider_val).argmin()
+                    const_val = a1_unique[a1_index]
+                    line_df = dataset_df[dataset_df[a1] == const_val].sort_values(a0)
+
+                    fig.add_trace(go.Scatter3d(
+                        x=line_df[a0].to_numpy(),
+                        y=np.full(len(line_df), const_val),
+                        z=line_df[variable_dict["name"]].to_numpy(),
+                        mode="lines",
+                        line=dict(color="black", width=3),
+                        showlegend=False,
+                        scene=scene_key,
+                    ), row=row, col=col)
+
+                else:
+                    # constant a0 (vertical slice), vary a1
+                    a0_index = np.abs(a0_unique - slider_val).argmin()
+                    const_val = a0_unique[a0_index]
+                    line_df = dataset_df[dataset_df[a0] == const_val].sort_values(a1)
+
+                    fig.add_trace(go.Scatter3d(
+                        x=np.full(len(line_df), const_val),
+                        y=line_df[a1].to_numpy(),
+                        z=line_df[variable_dict["name"]].to_numpy(),
+                        mode="lines",
+                        line=dict(color="black", width=3),
+                        showlegend=False,
+                        scene=scene_key,
+                    ), row=row, col=col)
+
+                fig.update_layout(
+                    {
+                        scene_key: dict(
+                            xaxis=dict(title=axis_label(a0)),
+                            yaxis=dict(title=axis_label(a1)),
+                            zaxis=dict(title=f"{variable_dict['name']} ({variable_dict['unit']})"),
+                        )
+                    }
+                )
 
             elif plot_type == "heatmap":
-                fig.add_trace(go.Heatmap(
-                    x=x_unique,
-                    y=y_unique,
-                    z=v_disp_2d,
-                    zmin=colorbar_min,
-                    zmax=colorbar_max,
-                    colorscale='RdBu_r',
-                    colorbar=dict(title=f"{variable_dict['name']} ({variable_dict['unit']})")
-                ), row=row, col=col)
+                fig.add_trace(
+                    go.Heatmap(
+                        x=a0_unique,
+                        y=a1_unique,
+                        z=v_2d,
+                        zmin=colorbar_min,
+                        zmax=colorbar_max,
+                        colorscale="RdBu_r",
+                        colorbar=dict(title=f"{variable_dict['name']} ({variable_dict['unit']})"),
+                    ),
+                    row=row,
+                    col=col,
+                )
 
-                # Add the black line indicating the cross-section
-                fig.add_trace(go.Scatter(
-                    x=[x_unique.min(), x_unique.max()],
-                    y=[slider_idx, slider_idx],
-                    mode='lines',
-                    line=dict(color='black', width=1),
-                    showlegend=False
-                ), row=row, col=col)
+                if cross_axis == a1:
+                    # horizontal line at y = slider_val
+                    fig.add_trace(go.Scatter(
+                        x=[a0_unique.min(), a0_unique.max()],
+                        y=[slider_val, slider_val],
+                        mode="lines",
+                        line=dict(color="black", width=1),
+                        showlegend=False,
+                    ), row=row, col=col)
+                else:
+                    # vertical line at x = slider_val
+                    fig.add_trace(go.Scatter(
+                        x=[slider_val, slider_val],
+                        y=[a1_unique.min(), a1_unique.max()],
+                        mode="lines",
+                        line=dict(color="black", width=1),
+                        showlegend=False,
+                    ), row=row, col=col)
 
-                xaxis_key = f'xaxis{i + 1}' if i > 0 else 'xaxis'
-                yaxis_key = f'yaxis{i + 1}' if i > 0 else 'yaxis'
-                fig.update_layout({
-                    xaxis_key: dict(title='x (m)', scaleanchor=f"y{i + 1}" if i > 0 else "y"),
-                    yaxis_key: dict(title='y (m)')
-                })
+                xaxis_key = f"xaxis{i + 1}" if i > 0 else "xaxis"
+                yaxis_key = f"yaxis{i + 1}" if i > 0 else "yaxis"
+                same_units = (
+                        axis_meta.get(a0, {}).get("unit") ==
+                        axis_meta.get(a1, {}).get("unit")
+                )
 
-        # Global layout updates
+                if same_units:
+                    fig.update_layout({
+                        xaxis_key: dict(
+                            title=axis_label(a0),
+                            scaleanchor=f"y{i + 1}" if i > 0 else "y",
+                        ),
+                        yaxis_key: dict(title=axis_label(a1)),
+                    })
+                else:
+                    fig.update_layout({
+                        xaxis_key: dict(title=axis_label(a0)),
+                        yaxis_key: dict(title=axis_label(a1)),
+                    })
+
         if plot_type == "3d_surface":
             fig.update_layout(
-                title=f"Surface Plot of x vs y colored by {variable_dict['name']} [{variable_dict['unit']}] (Re gridded Data)",
-                template='plotly_white'
+                title=f"Surface Plot of {a0} vs {a1} colored by {variable_dict['name']} [{variable_dict['unit']}] (Re-gridded)",
+                template="plotly_white",
             )
-        elif plot_type == "heatmap":
+        else:
             fig.update_layout(
-                title=f"Heatmap of x vs y colored by {variable_dict['name']} [{variable_dict['unit']}] (Re gridded Data)",
-                template='plotly_white'
+                title=f"Heatmap of {a0} vs {a1} colored by {variable_dict['name']} [{variable_dict['unit']}] (Re-gridded)",
+                template="plotly_white",
             )
-            fig.update_xaxes(matches='x')
-            fig.update_yaxes(matches='y')
+
+            # Only match axes when we're NOT locking aspect.
+            same_units = (
+                    axis_meta.get(a0, {}).get("unit") ==
+                    axis_meta.get(a1, {}).get("unit")
+            )
+            if not same_units:
+                # safe: consistent scales across subplots without aspect lock
+                fig.update_xaxes(matches="x")
+                fig.update_yaxes(matches="y")
+
     except Exception as e:
-        num_rows = 1
         print(f"Error plotting dataset: {e}")
-
-        x = np.linspace(-2, 2, 5)
-        y = np.linspace(-2, 2, 5)
-        X, Y = np.meshgrid(x, y)
-        Z = np.sin(X) * np.cos(Y)
-
-        max_abs_value = np.max(np.abs(Z))
-
         fig = go.Figure()
-        fig.add_trace(go.Surface(
-            x=x,
-            y=y,
-            z=Z,
-            colorscale='RdBu_r',
-            cmin=-max_abs_value,
-            cmax=max_abs_value,
-            colorbar=dict(title=f"{variable_dict['name']} ({variable_dict['unit']})")
-        ))
+        fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines", name="plot error"))
 
-    dynamic_height = f'{min(85 + (num_rows - 2) * 20, 150)}vh'  # Scale with num_rows
-    return fig, {'width': '100%', 'height': dynamic_height}
+        num_rows = 1
+
+    dynamic_height = f"{min(85 + (num_rows - 2) * 20, 150)}vh"
+    return fig, {"width": "100%", "height": dynamic_height}
 
 
-def cross_section_plots(df, variable_dict, slider=0):
+def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_axis=None, axis_meta=None):
     try:
-        df_cross = df[df['y'] == slider]  # Filter data for the selected cross-section
+        a0, a1 = axes
+        axis_meta = axis_meta or {}
+
+        # default: preserve old behavior (slice at a1)
+        if cross_axis is None:
+            cross_axis = a1
+        if cross_axis not in (a0, a1):
+            print(f"[WARN] cross_axis={cross_axis!r} not in axes={axes}; defaulting to {a1!r}")
+            cross_axis = a1
+
+        profile_axis = a0 if cross_axis == a1 else a1
+
+        def axis_label(a):
+            u = axis_meta.get(a, {}).get("unit", "")
+            return f"{a} ({u})" if u else a
+
+        # Choose nearest value along cross_axis
+        cross_vals = np.sort(df[cross_axis].unique())
+        if len(cross_vals) == 0:
+            return go.Figure()
+
+        slider_val = cross_vals[np.abs(cross_vals - slider).argmin()]
+
+        # Filter for the selected slice
+        df_cross = df[df[cross_axis] == slider_val]
         fig = go.Figure()
 
         # Add traces for each dataset_name
-        for dataset in df_cross['dataset_name'].unique():
-            dataset_df = df_cross[df_cross['dataset_name'] == dataset]  # Filter data for this dataset
+        for dataset in df_cross["dataset_name"].unique():
+            dataset_df = df_cross[df_cross["dataset_name"] == dataset].sort_values(profile_axis)
 
-            fig.add_trace(go.Scattergl(
-                x=dataset_df['x'],
-                y=dataset_df[variable_dict['name']],  # Select dynamically between var1, var2, var3
-                mode='lines',  # Line plot with markers
-                name=dataset,  # Legend entry
-                line=dict(width=2)  # Line width
-            ))
+            fig.add_trace(
+                go.Scattergl(
+                    x=dataset_df[profile_axis],
+                    y=dataset_df[variable_dict["name"]],
+                    mode="lines",
+                    name=dataset,
+                    line=dict(width=2),
+                )
+            )
 
-        # Customize layout
         fig.update_layout(
-            title=f"Cross section of {variable_dict['name']} at y={slider}m",
-            xaxis_title="x (m)",
+            title=f"Cross section of {variable_dict['name']} at {cross_axis}={slider_val}",
+            xaxis_title=axis_label(profile_axis),
             yaxis_title=f"{variable_dict['name']} ({variable_dict['unit']})",
             legend_title="Dataset Name",
-            template="plotly_white"
+            template="plotly_white",
         )
 
-        # Show plot
         return fig
+
     except Exception as e:
         print(f"error plotting dataset: {e}")
-        # Fallback plot in case of error
         fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(x=[0, 1, 2, 3], y=[0, 1, 2, 3], mode='lines', name="test_name", showlegend=True,
-                          legendgroup="code_name"),
-            )
-    return fig
+        fig.add_trace(go.Scatter(x=[0, 1, 2, 3], y=[0, 1, 2, 3], mode="lines", name="fallback"))
+        return fig

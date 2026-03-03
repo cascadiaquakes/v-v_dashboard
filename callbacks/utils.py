@@ -276,3 +276,11 @@ def get_benchmark_params(search):
         return template
     except Exception as e:
         raise ValueError(f"Error loading benchmark params: {e}")
+
+def get_benchmarks_list():
+    bucket_name = "benchmark-vv-data"
+    key = "public_ds/benchmarks_list.json"
+
+    resp = s3_client.get_object(Bucket=bucket_name, Key=key)
+    content = resp["Body"].read().decode("utf-8")
+    return json.loads(content)
