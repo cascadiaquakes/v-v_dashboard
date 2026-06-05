@@ -37,6 +37,7 @@ def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s
 
         for dataset_name, group in df.groupby('dataset_name'):
             color = color_mapping[dataset_name]
+            legend_name = dataset_name.split('_rec', 1)[0]
 
             for idx, var in enumerate(filtered_list):
                 row = (idx // 2) + 1
@@ -45,7 +46,7 @@ def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s
                 fig.add_trace(
                     go.Scatter(
                         mode='lines',
-                        name=dataset_name,
+                        name=legend_name,
                         line=dict(color=color),
                         showlegend=idx == 0,  # Show legend only for the first subplot
                         legendgroup=dataset_name,
@@ -61,6 +62,10 @@ def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s
             row = (idx // 2) + 1
             col = (idx % 2) + 1
             fig.update_xaxes(title_text=f"{x_axis['description']} ({x_axis['unit']})", row=row, col=col, showticklabels=True, matches='x')
+        for idx, var in enumerate(filtered_list):
+            row = (idx // 2) + 1
+            col = (idx % 2) + 1
+            fig.update_yaxes(title_text=f"{var['description']} ({var['unit']})", row=row, col=col)
             # if row == num_rows:  # Only update the x-axis for the last row
             #     fig.update_xaxes(title_text="Time (seconds)", row=row, col=col, matches='x')
             # else:
