@@ -284,13 +284,37 @@ def get_callbacks(app):
         if not public_items:
             return dbc.Alert("No public benchmarks found.", color="warning")
 
-        # Each link is a plain href that sets the querystring like you said
-        return dbc.ListGroup([
-            dbc.ListGroupItem(
-                html.A(item["id"], href=f"?benchmark_id={item['id']}")
-            )
-            for item in public_items
-        ])
+        public_benchmarks = [
+            item for item in public_items if item.get("status", "public") == "public"
+        ]
+        other_benchmarks = [
+            item for item in public_items if item.get("status", "public") != "public"
+        ]
+
+        def build_item(item):
+            status = item.get("status", "public")
+            children = [html.A(item["id"], href=f"?benchmark_id={item['id']}")]
+            if status != "public":
+                children.append(
+                    html.Span(
+                        f" ({status})",
+                        className="text-muted",
+                    )
+                )
+            return dbc.ListGroupItem(children)
+
+        public_list = dbc.ListGroup([build_item(item) for item in public_benchmarks]) if public_benchmarks else None
+        other_list = dbc.ListGroup([build_item(item) for item in other_benchmarks]) if other_benchmarks else None
+
+        list_children = []
+        if public_list:
+            list_children.append(public_list)
+        if other_benchmarks:
+            if public_list:
+                list_children.append(html.Hr())
+            list_children.append(other_list)
+
+        return html.Div(list_children)
 
 
     @app.callback(
