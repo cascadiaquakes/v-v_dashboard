@@ -12,50 +12,71 @@ def get_main_page():
             dcc.Location(id='url', refresh=False),
             dcc.Location(id='redirect', refresh=True),
             dbc.Navbar(
-                dbc.Row(  # Use dbc.Row to properly align columns
+                html.Div(
                     [
-                        dbc.Col(
-                            html.A(
-                                href="https://cascadiaquakes.org/",
-                                children=[
-                                    html.Img(
-                                        src='assets/Crescent_Logo.png', style={'height': '60px'}
-                                    ),
-                                ]
-                            ),
-                            width={"size": 3, "offset": 1},
+                        html.Div(
+                            [
+                                html.A(
+                                    href="https://cascadiaquakes.org/",
+                                    children=[
+                                        html.Img(
+                                            src='assets/Crescent_Logo.png', style={'height': '50px'}
+                                        ),
+                                    ]
+                                ),
+                                html.A(
+                                    href="https://www.nsf.gov",
+                                    children=[
+                                        html.Img(
+                                            src='assets/USNSF_Logo.png',
+                                            style={'height': '70px'}
+                                        ),
+                                    ]
+                                ),
+                            ],
+                            style={
+                                'display': 'flex',
+                                'alignItems': 'center',
+                                'gap': '1.5rem'
+                            }
                         ),
-                        dbc.Col(
-                            html.H1(
-                                "Code Verification Platform",
-                                style={
-                                    'textAlign': 'center',
-                                    'color': 'white'
-                                }
-                            ),
-                            width={"size": 5, "offset": 0}
+                        html.H1(
+                            "Code Verification Platform",
+                            style={
+                                'position': 'absolute',
+                                'left': '50%',
+                                'transform': 'translateX(-50%)',
+                                'textAlign': 'center',
+                                'color': 'white',
+                                'fontSize': '1.8rem',
+                                'margin': '0',
+                                'whiteSpace': 'nowrap'
+                            }
                         ),
-                        dbc.Col(
-                            html.A(
-                                href="https://www.nsf.gov",
-                                children=[
-                                    html.Img(
-                                        src='assets/USNSF_Logo.png',
-                                        style={'height': '90px'}
-                                    ),
-                                ]
-                            ),
-                            width={"size": 3, "offset": 0},
+                        dbc.Button(
+                            "Uploader",
+                            href="https://det-uploader.cascadiaquakes.org/",
+                            target="_blank",
+                            color="light",
+                            size="sm",
+                            style={'whiteSpace': 'nowrap'}
                         ),
                     ],
-                    align="center",  # Center the content vertically
-                    style={'width': '100%', 'margin': '0'}  # Full width, no margin
+                    style={
+                        'position': 'relative',
+                        'display': 'flex',
+                        'alignItems': 'center',
+                        'justifyContent': 'space-between',
+                        'width': '100%',
+                        'height': '100%',
+                        'padding': '0 1rem'
+                    }
                 ),
                 color="#26505A",
                 dark=True,
                 style={
                     'marginBottom': '1rem',
-                    'height': '100px',
+                    'height': '80px',
                     'width': '100%',  # Ensures full-width navbar
                     'padding': '0'  # Remove padding to prevent overflow
                 }
