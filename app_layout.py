@@ -183,6 +183,24 @@ def get_main_page():
                                         dcc.Tab(label='Graph control', value='tab-graphcontrol',
                                                 children=[
                                                     dbc.Row(
+                                                        children=[
+                                                            dbc.Col([
+                                                                dbc.Label("Time axis unit"),
+                                                                dbc.Select(
+                                                                    id="time-axis-unit",
+                                                                    options=[
+                                                                        {"label": "Seconds", "value": "s"},
+                                                                        {"label": "Minutes", "value": "min"},
+                                                                        {"label": "Hours", "value": "h"},
+                                                                        {"label": "Days", "value": "d"},
+                                                                        {"label": "Years", "value": "yr"},
+                                                                    ],
+                                                                    value="s"
+                                                                )
+                                                            ])
+                                                        ]
+                                                    ),
+                                                    dbc.Row(
                                                         id='graph-control-surface',
                                                         children=[
                                                             dbc.Col(children=[
@@ -235,9 +253,7 @@ def get_main_page():
                                                                            max=100,
                                                                            step=5000,
                                                                            value=0,
-                                                                           marks={i: str(i) for i in
-                                                                                  range(-100, 100 + 1,
-                                                                                        (100 + 100) // 10)}
+                                                                           marks={}
                                                                            ),  # For cross-section update
                                                             ]
                                                             )

@@ -104,8 +104,8 @@
       "file_type": "dat"
     },
     {
-      "name": "bp8-qd Slip 2 evolution",
-      "content": "Slip 2 evolution",
+      "name": "Slip 2 evolution along strike",
+      "content": "Slip 2 evolution along strike",
       "graph_type": "surface",
       "reader": "seas_slip_long",
       "list_of_receivers": [
@@ -130,9 +130,9 @@
           "description": "time"
         },
         {
-          "name": "z",
+          "name": "x",
           "unit": "m",
-          "description": "distance along z"
+          "description": "distance"
         },
         {
           "name": "slip",
@@ -146,6 +146,411 @@
         }
       ],
       "prefix": "slip_2_strike",
+      "file_type": "dat"
+    },
+    {
+      "name": "Slip 2 evolution along depth",
+      "content": "Slip 2 evolution along depth",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "list_of_receivers": [
+        "slip_2_depth"
+      ],
+      "grid": {
+        "z": {
+          "min": -400.0,
+          "max": 400.0,
+          "n": 801
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2592000.0,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "slip",
+          "unit": "m",
+          "description": "Slip"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "slip_2_depth",
+      "file_type": "dat"
+    },
+    {
+      "name": "Slip 3 evolution along strike",
+      "content": "Slip 3 evolution along strike",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "list_of_receivers": [
+        "slip_3_strike"
+      ],
+      "grid": {
+        "z": {
+          "min": -400.0,
+          "max": 400.0,
+          "n": 801
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2592000.0,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "slip",
+          "unit": "m",
+          "description": "Slip"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "slip_3_strike",
+      "file_type": "dat"
+    },
+    {
+      "name": "Slip 3 evolution along depth",
+      "content": "Slip 3 evolution along depth",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "list_of_receivers": [
+        "slip_3_depth"
+      ],
+      "grid": {
+        "z": {
+          "min": -400.0,
+          "max": 400.0,
+          "n": 801
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2592000.0,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "slip",
+          "unit": "m",
+          "description": "Slip"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "slip_3_depth",
+      "file_type": "dat"
+    },
+    {
+      "name": "Shear stress 2 evolution along strike",
+      "content": "Shear stress 2 evolution along strike",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "list_of_receivers": [
+        "shear_stress_2_strike"
+      ],
+      "grid": {
+        "z": {
+          "min": -400.0,
+          "max": 400.0,
+          "n": 801
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2592000.0,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "shear 2",
+          "unit": "MPa",
+          "description": "Shear stress 2"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "shear_stress_2_strike",
+      "file_type": "dat"
+    },
+    {
+      "name": "Shear stress 2 evolution along depth",
+      "content": "Shear stress 2 evolution along depth",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "list_of_receivers": [
+        "shear_stress_2_depth"
+      ],
+      "grid": {
+        "z": {
+          "min": -400.0,
+          "max": 400.0,
+          "n": 801
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2592000.0,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "shear 2",
+          "unit": "MPa",
+          "description": "Shear stress 2"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "shear_stress_2_depth",
+      "file_type": "dat"
+    },
+    {
+      "name": "Shear stress 3 evolution along strike",
+      "content": "Shear stress 3 evolution along strike",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "list_of_receivers": [
+        "shear_stress_3_strike"
+      ],
+      "grid": {
+        "z": {
+          "min": -400.0,
+          "max": 400.0,
+          "n": 801
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2592000.0,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "shear 3",
+          "unit": "MPa",
+          "description": "Shear stress 3"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "shear_stress_3_strike",
+      "file_type": "dat"
+    },
+    {
+      "name": "Shear stress 3 evolution along depth",
+      "content": "Shear stress 3 evolution along depth",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "list_of_receivers": [
+        "shear_stress_3_depth"
+      ],
+      "grid": {
+        "z": {
+          "min": -400.0,
+          "max": 400.0,
+          "n": 801
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2592000.0,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "shear 3",
+          "unit": "MPa",
+          "description": "Shear stress 3"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "shear_stress_3_depth",
+      "file_type": "dat"
+    },
+    {
+      "name": "Pore pressure evolution along strike",
+      "content": "Pore pressure evolution along strike",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "list_of_receivers": [
+        "pore_pressure_strike"
+      ],
+      "grid": {
+        "z": {
+          "min": -400.0,
+          "max": 400.0,
+          "n": 801
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2592000.0,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "Pore pressure",
+          "unit": "MPa",
+          "description": "Pore pressure"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "pore_pressure_strike",
+      "file_type": "dat"
+    },
+    {
+      "name": "Pore pressure evolution along depth",
+      "content": "Pore pressure evolution along depth",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "list_of_receivers": [
+        "pore_pressure_depth"
+      ],
+      "grid": {
+        "z": {
+          "min": -400.0,
+          "max": 400.0,
+          "n": 801
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2592000.0,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "pore pressure",
+          "unit": "MPa",
+          "description": "Pore pressure"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "pore_pressure_depth",
       "file_type": "dat"
     }
   ]

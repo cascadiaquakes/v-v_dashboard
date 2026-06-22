@@ -5,7 +5,61 @@ import plotly.graph_objects as go
 import numpy as np
 
 
-def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s', 'description':'Time'})):
+TIME_UNIT_FACTORS = {
+    "s": 1.0,
+    "min": 60.0,
+    "h": 3600.0,
+    "d": 86400.0,
+    "yr": 365.25 * 86400.0,
+}
+
+TIME_UNIT_LABELS = {
+    "s": "s",
+    "min": "min",
+    "h": "h",
+    "d": "d",
+    "yr": "yr",
+}
+
+
+def time_axis_factor(time_axis_unit):
+    return TIME_UNIT_FACTORS.get(time_axis_unit, TIME_UNIT_FACTORS["s"])
+
+
+def time_axis_label(time_axis_unit):
+    return TIME_UNIT_LABELS.get(time_axis_unit, TIME_UNIT_LABELS["s"])
+
+
+def _axis_unit(axis_name, axis_meta, time_axis_unit):
+    if axis_name == "t":
+        return time_axis_label(time_axis_unit)
+    return axis_meta.get(axis_name, {}).get("unit", "")
+
+
+def _axis_label(axis_name, axis_meta, time_axis_unit):
+    unit = _axis_unit(axis_name, axis_meta, time_axis_unit)
+    return f"{axis_name} ({unit})" if unit else axis_name
+
+
+def _axis_display_values(values, axis_name, time_axis_unit):
+    if axis_name == "t":
+        return values / time_axis_factor(time_axis_unit)
+    return values
+
+
+def _axis_display_value(value, axis_name, time_axis_unit):
+    if axis_name == "t":
+        return value / time_axis_factor(time_axis_unit)
+    return value
+
+
+def _axis_raw_value(value, axis_name, time_axis_unit):
+    if axis_name == "t":
+        return value * time_axis_factor(time_axis_unit)
+    return value
+
+
+def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s', 'description':'Time'}), time_axis_unit="s"):
     """
     Generate a dynamic plot with subplots based on a list of variable dictionaries.
 
@@ -55,13 +109,17 @@ def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s
                 )
 
                 # Append data to the traces
-                fig.data[-1].update({'x': group[x_axis['name']], 'y': group[var['name']]})
+                x_values = group[x_axis['name']]
+                if x_axis['name'] == "t":
+                    x_values = x_values / time_axis_factor(time_axis_unit)
+                fig.data[-1].update({'x': x_values, 'y': group[var['name']]})
 
         # Update layout with title and shared x-axis range
         for idx in range(0, len(variable_list) + 1):
             row = (idx // 2) + 1
             col = (idx % 2) + 1
-            fig.update_xaxes(title_text=f"{x_axis['description']} ({x_axis['unit']})", row=row, col=col, showticklabels=True, matches='x')
+            x_axis_unit = time_axis_label(time_axis_unit) if x_axis['name'] == "t" else x_axis['unit']
+            fig.update_xaxes(title_text=f"{x_axis['description']} ({x_axis_unit})", row=row, col=col, showticklabels=True, matches='x')
         for idx, var in enumerate(filtered_list):
             row = (idx // 2) + 1
             col = (idx % 2) + 1
@@ -112,6 +170,7 @@ def main_surface_plot_dynamic_v2(
     axes=("x", "y"),
     cross_axis=None,
     axis_meta=None,
+    time_axis_unit="s",
 ):
     """
     axes: (a0, a1) are the two grid axes in df. Slider is applied along a1.
@@ -126,10 +185,6 @@ def main_surface_plot_dynamic_v2(
         if cross_axis not in (a0, a1):
             print(f"[WARN] cross_axis={cross_axis!r} not in axes={axes}; defaulting to {a1!r}")
             cross_axis = a1
-
-        def axis_label(a):
-            u = axis_meta.get(a, {}).get("unit", "")
-            return f"{a} ({u})" if u else a
 
         datasets = df["dataset_name"].unique()
         num_ds = len(datasets)
@@ -159,18 +214,22 @@ def main_surface_plot_dynamic_v2(
             dataset_df = df[df["dataset_name"] == dataset_name]
 
             cross_vals = np.sort(dataset_df[cross_axis].unique())
-            slider_val = cross_vals[np.abs(cross_vals - slider).argmin()]
+            raw_slider = _axis_raw_value(slider, cross_axis, time_axis_unit)
+            slider_val = cross_vals[np.abs(cross_vals - raw_slider).argmin()]
 
             a0_unique = np.sort(dataset_df[a0].unique())
             a1_unique = np.sort(dataset_df[a1].unique())
+            a0_display = _axis_display_values(a0_unique, a0, time_axis_unit)
+            a1_display = _axis_display_values(a1_unique, a1, time_axis_unit)
+            slider_display = _axis_display_value(slider_val, cross_axis, time_axis_unit)
 
             v_2d = dataset_df.pivot(index=a1, columns=a0, values=variable_dict["name"]).values
 
             if plot_type == "3d_surface":
                 fig.add_trace(
                     go.Surface(
-                        x=a0_unique,
-                        y=a1_unique,
+                        x=a0_display,
+                        y=a1_display,
                         z=v_2d,
                         colorscale="RdBu_r",
                         cmin=colorbar_min,
@@ -191,8 +250,8 @@ def main_surface_plot_dynamic_v2(
                     line_df = dataset_df[dataset_df[a1] == const_val].sort_values(a0)
 
                     fig.add_trace(go.Scatter3d(
-                        x=line_df[a0].to_numpy(),
-                        y=np.full(len(line_df), const_val),
+                        x=_axis_display_values(line_df[a0].to_numpy(), a0, time_axis_unit),
+                        y=np.full(len(line_df), _axis_display_value(const_val, a1, time_axis_unit)),
                         z=line_df[variable_dict["name"]].to_numpy(),
                         mode="lines",
                         line=dict(color="black", width=3),
@@ -207,8 +266,8 @@ def main_surface_plot_dynamic_v2(
                     line_df = dataset_df[dataset_df[a0] == const_val].sort_values(a1)
 
                     fig.add_trace(go.Scatter3d(
-                        x=np.full(len(line_df), const_val),
-                        y=line_df[a1].to_numpy(),
+                        x=np.full(len(line_df), _axis_display_value(const_val, a0, time_axis_unit)),
+                        y=_axis_display_values(line_df[a1].to_numpy(), a1, time_axis_unit),
                         z=line_df[variable_dict["name"]].to_numpy(),
                         mode="lines",
                         line=dict(color="black", width=3),
@@ -219,8 +278,8 @@ def main_surface_plot_dynamic_v2(
                 fig.update_layout(
                     {
                         scene_key: dict(
-                            xaxis=dict(title=axis_label(a0)),
-                            yaxis=dict(title=axis_label(a1)),
+                            xaxis=dict(title=_axis_label(a0, axis_meta, time_axis_unit)),
+                            yaxis=dict(title=_axis_label(a1, axis_meta, time_axis_unit)),
                             zaxis=dict(title=f"{variable_dict['name']} ({variable_dict['unit']})"),
                         )
                     }
@@ -229,8 +288,8 @@ def main_surface_plot_dynamic_v2(
             elif plot_type == "heatmap":
                 fig.add_trace(
                     go.Heatmap(
-                        x=a0_unique,
-                        y=a1_unique,
+                        x=a0_display,
+                        y=a1_display,
                         z=v_2d,
                         zmin=colorbar_min,
                         zmax=colorbar_max,
@@ -244,8 +303,8 @@ def main_surface_plot_dynamic_v2(
                 if cross_axis == a1:
                     # horizontal line at y = slider_val
                     fig.add_trace(go.Scatter(
-                        x=[a0_unique.min(), a0_unique.max()],
-                        y=[slider_val, slider_val],
+                        x=[a0_display.min(), a0_display.max()],
+                        y=[slider_display, slider_display],
                         mode="lines",
                         line=dict(color="black", width=1),
                         showlegend=False,
@@ -253,8 +312,8 @@ def main_surface_plot_dynamic_v2(
                 else:
                     # vertical line at x = slider_val
                     fig.add_trace(go.Scatter(
-                        x=[slider_val, slider_val],
-                        y=[a1_unique.min(), a1_unique.max()],
+                        x=[slider_display, slider_display],
+                        y=[a1_display.min(), a1_display.max()],
                         mode="lines",
                         line=dict(color="black", width=1),
                         showlegend=False,
@@ -263,39 +322,39 @@ def main_surface_plot_dynamic_v2(
                 xaxis_key = f"xaxis{i + 1}" if i > 0 else "xaxis"
                 yaxis_key = f"yaxis{i + 1}" if i > 0 else "yaxis"
                 same_units = (
-                        axis_meta.get(a0, {}).get("unit") ==
-                        axis_meta.get(a1, {}).get("unit")
+                        _axis_unit(a0, axis_meta, time_axis_unit) ==
+                        _axis_unit(a1, axis_meta, time_axis_unit)
                 )
 
                 if same_units:
                     fig.update_layout({
                         xaxis_key: dict(
-                            title=axis_label(a0),
+                            title=_axis_label(a0, axis_meta, time_axis_unit),
                             scaleanchor=f"y{i + 1}" if i > 0 else "y",
                         ),
-                        yaxis_key: dict(title=axis_label(a1)),
+                        yaxis_key: dict(title=_axis_label(a1, axis_meta, time_axis_unit)),
                     })
                 else:
                     fig.update_layout({
-                        xaxis_key: dict(title=axis_label(a0)),
-                        yaxis_key: dict(title=axis_label(a1)),
+                        xaxis_key: dict(title=_axis_label(a0, axis_meta, time_axis_unit)),
+                        yaxis_key: dict(title=_axis_label(a1, axis_meta, time_axis_unit)),
                     })
 
         if plot_type == "3d_surface":
             fig.update_layout(
-                title=f"Surface Plot of {a0} vs {a1} colored by {variable_dict['name']} [{variable_dict['unit']}] (Re-gridded)",
+                title=f"Surface Plot of {_axis_label(a0, axis_meta, time_axis_unit)} vs {_axis_label(a1, axis_meta, time_axis_unit)} colored by {variable_dict['name']} [{variable_dict['unit']}] (Re-gridded)",
                 template="plotly_white",
             )
         else:
             fig.update_layout(
-                title=f"Heatmap of {a0} vs {a1} colored by {variable_dict['name']} [{variable_dict['unit']}] (Re-gridded)",
+                title=f"Heatmap of {_axis_label(a0, axis_meta, time_axis_unit)} vs {_axis_label(a1, axis_meta, time_axis_unit)} colored by {variable_dict['name']} [{variable_dict['unit']}] (Re-gridded)",
                 template="plotly_white",
             )
 
             # Only match axes when we're NOT locking aspect.
             same_units = (
-                    axis_meta.get(a0, {}).get("unit") ==
-                    axis_meta.get(a1, {}).get("unit")
+                    _axis_unit(a0, axis_meta, time_axis_unit) ==
+                    _axis_unit(a1, axis_meta, time_axis_unit)
             )
             if not same_units:
                 # safe: consistent scales across subplots without aspect lock
@@ -313,7 +372,7 @@ def main_surface_plot_dynamic_v2(
     return fig, {"width": "100%", "height": dynamic_height}
 
 
-def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_axis=None, axis_meta=None):
+def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_axis=None, axis_meta=None, time_axis_unit="s"):
     try:
         a0, a1 = axes
         axis_meta = axis_meta or {}
@@ -327,16 +386,14 @@ def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_a
 
         profile_axis = a0 if cross_axis == a1 else a1
 
-        def axis_label(a):
-            u = axis_meta.get(a, {}).get("unit", "")
-            return f"{a} ({u})" if u else a
-
         # Choose nearest value along cross_axis
         cross_vals = np.sort(df[cross_axis].unique())
         if len(cross_vals) == 0:
             return go.Figure()
 
-        slider_val = cross_vals[np.abs(cross_vals - slider).argmin()]
+        raw_slider = _axis_raw_value(slider, cross_axis, time_axis_unit)
+        slider_val = cross_vals[np.abs(cross_vals - raw_slider).argmin()]
+        slider_display = _axis_display_value(slider_val, cross_axis, time_axis_unit)
 
         # Filter for the selected slice
         df_cross = df[df[cross_axis] == slider_val]
@@ -348,7 +405,7 @@ def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_a
 
             fig.add_trace(
                 go.Scattergl(
-                    x=dataset_df[profile_axis],
+                    x=_axis_display_values(dataset_df[profile_axis], profile_axis, time_axis_unit),
                     y=dataset_df[variable_dict["name"]],
                     mode="lines",
                     name=dataset,
@@ -357,8 +414,8 @@ def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_a
             )
 
         fig.update_layout(
-            title=f"Cross section of {variable_dict['name']} at {cross_axis}={slider_val}",
-            xaxis_title=axis_label(profile_axis),
+            title=f"Cross section of {variable_dict['name']} at {_axis_label(cross_axis, axis_meta, time_axis_unit)}={slider_display:.6g}",
+            xaxis_title=_axis_label(profile_axis, axis_meta, time_axis_unit),
             yaxis_title=f"{variable_dict['name']} ({variable_dict['unit']})",
             legend_title="Dataset Name",
             template="plotly_white",

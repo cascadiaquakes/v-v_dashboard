@@ -2,7 +2,13 @@ import dash
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from callbacks.plots import main_time_plot_dynamic, main_surface_plot_dynamic_v2, cross_section_plots
+from callbacks.plots import (
+    main_time_plot_dynamic,
+    main_surface_plot_dynamic_v2,
+    cross_section_plots,
+    time_axis_factor,
+    time_axis_label,
+)
 from callbacks.utils import get_df, get_upload_df, fetch_group_names_for_benchmark, get_metadata, get_benchmark_params, \
     get_plots_from_json, get_benchmarks_list
 from dash import ctx, no_update, html
@@ -48,6 +54,7 @@ def get_callbacks(app):
                       dash.dependencies.State('surface-plot-type', 'value'),
                       dash.dependencies.State('surface-plot-var', "value"),
                       dash.dependencies.State('time-xaxis-var', "value"),
+                      dash.dependencies.State('time-axis-unit', "value"),
                       dash.dependencies.State('main-graph', 'figure'),
                       dash.dependencies.State('upload-data', "contents"),
                       dash.dependencies.State('upload-data', 'filename'),
@@ -58,7 +65,8 @@ def get_callbacks(app):
                   ]
                   )
     def display_plots(ds_update_clicks, graph_control_nclick, benchmark_params, file_type_name, dataset_list, receiver,
-                      benchmark_id, slider_gc_surface, surface_plot_type, surface_plot_var, x_axis_sel, current_fig, upload_data,
+                      benchmark_id, slider_gc_surface, surface_plot_type, surface_plot_var, x_axis_sel, time_axis_unit,
+                      current_fig, upload_data,
                       filename, colorbar_min, colorbar_max,surface_cross_axis , surface_switch_axis ):
         """
         Update the time-series graph based on user inputs.
@@ -133,6 +141,7 @@ def get_callbacks(app):
                 axes=axes,
                 cross_axis=surface_cross_axis,
                 axis_meta=axis_meta,
+                time_axis_unit=time_axis_unit,
             )
 
             sub_graph = cross_section_plots(
@@ -142,12 +151,13 @@ def get_callbacks(app):
                 axes=axes,
                 cross_axis=surface_cross_axis,
                 axis_meta=axis_meta,
+                time_axis_unit=time_axis_unit,
             )
             sub_graph_style = {"display": "block"}
         else:
             x_axis = next((item for item in plots_list if item['name'] == x_axis_sel), plots_list[0])
 
-            main_graph, main_graph_style = main_time_plot_dynamic(ds_update, plots_list, x_axis)
+            main_graph, main_graph_style = main_time_plot_dynamic(ds_update, plots_list, x_axis, time_axis_unit)
             sub_graph = go.Figure()
             sub_graph_style = {'display': 'none'}
 
@@ -334,7 +344,7 @@ def get_callbacks(app):
         """
         if benchmark_params is None:
             return no_update
-        list_files = [file['name'] for file in benchmark_params['files']]
+        list_files = list(dict.fromkeys(file['name'] for file in benchmark_params['files']))
         return list_files, list_files[0]
 
     @app.callback(
@@ -421,11 +431,12 @@ def get_callbacks(app):
         dash.dependencies.Input("file-type-selector", "value"),
         dash.dependencies.Input("surface-cross-axis", "value"),
         dash.dependencies.Input("surface-switch-axis", "value"),
+        dash.dependencies.Input("time-axis-unit", "value"),
         dash.dependencies.State("benchmark-params", "data"),
         dash.dependencies.State("slider-gc-surface", "value"),
     )
     def update_surface_slider(file_type_name, cross_axis, switch_axis_value,
-                              benchmark_params, current_value):
+                              time_axis_unit, benchmark_params, current_value):
 
         # ---- Basic guards ----
         if not benchmark_params or not file_type_name:
@@ -462,17 +473,18 @@ def get_callbacks(app):
         meta = {v.get("name"): v for v in (file_params.get("var_list") or [])}
         unit = (meta.get(cross_axis, {}) or {}).get("unit", "")
 
-        ui_min = vmin
-        ui_max = vmax
-        ui_unit = unit if unit else "units"
+        factor = time_axis_factor(time_axis_unit) if cross_axis == "t" else 1.0
+        ui_min = vmin / factor
+        ui_max = vmax / factor
+        ui_unit = time_axis_label(time_axis_unit) if cross_axis == "t" else unit if unit else "units"
 
         span = ui_max - ui_min if ui_max != ui_min else 1.0
 
         # ---- Step: smooth but not insane ----
         ui_step = span / 500.0  # about 500 drag positions
 
-        # ---- 9 evenly spaced ticks ----
-        tick_vals = np.linspace(ui_min, ui_max, 9)
+        # ---- A few readable ticks for the narrow control panel ----
+        tick_vals = np.linspace(ui_min, ui_max, 5)
 
         def fmt_compact(x: float) -> str:
             x = float(x)
@@ -490,10 +502,10 @@ def get_callbacks(app):
                 return f"{x:.1f}".rstrip("0").rstrip(".")
             return f"{x:.2f}".rstrip("0").rstrip(".")
 
-        marks = {int(v): fmt_compact(v) for v in tick_vals}
+        marks = {f"{float(v):.12g}": fmt_compact(v) for v in tick_vals}
 
         # ---- Clamp value ----
-        if current_value is None:
+        if current_value is None or ctx.triggered_id == "time-axis-unit":
             ui_value = float((ui_min + ui_max) / 2.0)
         else:
             ui_value = float(current_value)
