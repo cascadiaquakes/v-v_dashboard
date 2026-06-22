@@ -59,6 +59,16 @@ def _axis_raw_value(value, axis_name, time_axis_unit):
     return value
 
 
+def _match_subplot_axes(fig, *, x=False, y=False):
+    # Plotly warns when the primary axis is set to match itself.
+    if x:
+        fig.update_xaxes(matches="x")
+        fig.layout.xaxis.matches = None
+    if y:
+        fig.update_yaxes(matches="y")
+        fig.layout.yaxis.matches = None
+
+
 def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s', 'description':'Time'}), time_axis_unit="s"):
     """
     Generate a dynamic plot with subplots based on a list of variable dictionaries.
@@ -119,15 +129,12 @@ def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s
             row = (idx // 2) + 1
             col = (idx % 2) + 1
             x_axis_unit = time_axis_label(time_axis_unit) if x_axis['name'] == "t" else x_axis['unit']
-            fig.update_xaxes(title_text=f"{x_axis['description']} ({x_axis_unit})", row=row, col=col, showticklabels=True, matches='x')
+            fig.update_xaxes(title_text=f"{x_axis['description']} ({x_axis_unit})", row=row, col=col, showticklabels=True)
+        _match_subplot_axes(fig, x=True)
         for idx, var in enumerate(filtered_list):
             row = (idx // 2) + 1
             col = (idx % 2) + 1
             fig.update_yaxes(title_text=f"{var['description']} ({var['unit']})", row=row, col=col)
-            # if row == num_rows:  # Only update the x-axis for the last row
-            #     fig.update_xaxes(title_text="Time (seconds)", row=row, col=col, matches='x')
-            # else:
-            #     fig.update_xaxes(matches='x')
 
         # Update layout to include legend and global settings
         fig.update_layout(
@@ -358,8 +365,7 @@ def main_surface_plot_dynamic_v2(
             )
             if not same_units:
                 # safe: consistent scales across subplots without aspect lock
-                fig.update_xaxes(matches="x")
-                fig.update_yaxes(matches="y")
+                _match_subplot_axes(fig, x=True, y=True)
 
     except Exception as e:
         print(f"Error plotting dataset: {e}")
