@@ -1,0 +1,112 @@
+name: destroy-ecs-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type DESTROY DashboardEcsDev to confirm"
+        required: true
+
+permissions:
+  contents: read
+
+# Deployment and destruction of the test environment must never overlap.
+concurrency:
+  group: ecs-test-environment
+  cancel-in-progress: false
+
+env:
+  DEPLOY_REGION: us-west-2
+  DEV_STACK_NAME: DashboardEcsDev
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Validate confirmation
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIRMATION" != "DESTROY DashboardEcsDev" ]]; then
+            echo "Confirmation did not exactly match: DESTROY DashboardEcsDev" >&2
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::818214664804:role/GitHubActionsDeployRole
+          aws-region: ${{ env.DEPLOY_REGION }}
+          role-session-name: gha-destroy-ecs-test
+
+      - name: Verify fixed development stack
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STACK_ID=$(aws cloudformation describe-stacks \
+            --stack-name "$DEV_STACK_NAME" \
+            --region "$DEPLOY_REGION" \
+            --query "Stacks[0].StackId" \
+            --output text)
+
+          if [[ "$STACK_ID" != *":stack/${DEV_STACK_NAME}/"* ]]; then
+            echo "Refusing to continue: unexpected stack identity $STACK_ID" >&2
+            exit 1
+          fi
+
+          mapfile -t RESOURCE_TYPES < <(aws cloudformation list-stack-resources \
+            --stack-name "$DEV_STACK_NAME" \
+            --region "$DEPLOY_REGION" \
+            --query "StackResourceSummaries[].ResourceType" \
+            --output text | tr '\t' '\n')
+
+          FORBIDDEN_TYPES=(
+            "AWS::S3::Bucket"
+            "AWS::ECR::Repository"
+            "AWS::EC2::VPC"
+            "AWS::EC2::Subnet"
+            "AWS::EC2::Route"
+            "AWS::EC2::RouteTable"
+            "AWS::EC2::NatGateway"
+            "AWS::ECS::Cluster"
+            "AWS::DynamoDB::Table"
+            "AWS::Lambda::Function"
+            "AWS::Events::Rule"
+            "AWS::StepFunctions::StateMachine"
+            "AWS::ApiGateway::RestApi"
+          )
+
+          for FORBIDDEN_TYPE in "${FORBIDDEN_TYPES[@]}"; do
+            for RESOURCE_TYPE in "${RESOURCE_TYPES[@]}"; do
+              if [[ "$RESOURCE_TYPE" == "$FORBIDDEN_TYPE" ]]; then
+                echo "Refusing to delete: $DEV_STACK_NAME owns forbidden resource type $FORBIDDEN_TYPE" >&2
+                exit 1
+              fi
+            done
+          done
+
+          echo "Safety audit passed. Resources owned by $DEV_STACK_NAME:"
+          aws cloudformation list-stack-resources \
+            --stack-name "$DEV_STACK_NAME" \
+            --region "$DEPLOY_REGION" \
+            --query "StackResourceSummaries[].{Type:ResourceType,Id:PhysicalResourceId}" \
+            --output table
+
+      - name: Delete development stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws cloudformation delete-stack \
+            --stack-name "$DEV_STACK_NAME" \
+            --region "$DEPLOY_REGION"
+          aws cloudformation wait stack-delete-complete \
+            --stack-name "$DEV_STACK_NAME" \
+            --region "$DEPLOY_REGION"
+          echo "$DEV_STACK_NAME was deleted successfully."
