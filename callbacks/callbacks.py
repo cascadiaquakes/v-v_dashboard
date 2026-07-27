@@ -42,7 +42,62 @@ def _axis_meta_from_file_params(file_params: dict) -> dict:
             meta[name] = {"unit": v.get("unit", ""), "description": v.get("description", "")}
     return meta
 
+
 def get_callbacks(app):
+    app.clientside_callback(
+        """
+        function(relayoutData, surfacePlotType) {
+            const noUpdate = window.dash_clientside.no_update;
+            if (surfacePlotType !== "3d_surface" || !relayoutData || window.__vvSyncing3dCamera) {
+                return noUpdate;
+            }
+
+            let sourceScene = null;
+            let camera = null;
+            for (const [key, value] of Object.entries(relayoutData)) {
+                const parts = key.split(".");
+                if (!/^scene\\d*$/.test(parts[0]) || parts[1] !== "camera") {
+                    continue;
+                }
+                if (parts.length === 2 && value && typeof value === "object") {
+                    sourceScene = parts[0];
+                    camera = value;
+                    break;
+                }
+            }
+            if (!sourceScene || !camera) {
+                return noUpdate;
+            }
+
+            const root = document.getElementById("main-graph");
+            const plot = root && root.querySelector(".js-plotly-plot");
+            if (!plot || !plot._fullLayout || !window.Plotly) {
+                return noUpdate;
+            }
+
+            const update = {};
+            for (const scene of Object.keys(plot._fullLayout)) {
+                if (/^scene\\d*$/.test(scene) && scene !== sourceScene) {
+                    update[scene + ".camera"] = camera;
+                }
+            }
+            if (!Object.keys(update).length) {
+                return noUpdate;
+            }
+
+            window.__vvSyncing3dCamera = true;
+            window.Plotly.relayout(plot, update).finally(function() {
+                window.__vvSyncing3dCamera = false;
+            });
+            return noUpdate;
+        }
+        """,
+        dash.dependencies.Output("camera-sync-state", "data"),
+        dash.dependencies.Input("main-graph", "relayoutData"),
+        dash.dependencies.State("surface-plot-type", "value"),
+        prevent_initial_call=True,
+    )
+
     @app.callback(dash.dependencies.Output('main-graph', 'figure'),
                   dash.dependencies.Output('main-graph', 'style'),
                   dash.dependencies.Output('sub-graph', 'figure'),
@@ -115,17 +170,22 @@ def get_callbacks(app):
             if selected_df is not None:
                 list_df.append(selected_df)
             if len(list_df) > 0:
-                ds_update = pd.concat(list_df)
+                ds_update = pd.concat(list_df, ignore_index=True, copy=False)
             else:
                 ds_update = pd.DataFrame()
         else:
             ds_update = pd.DataFrame()
+
+        if ds_update.empty:
+            return go.Figure(), {'width': '100%', 'height': '85vh'}, go.Figure(), {'display': 'none'}
 
         if plot_type == 'surface':
             fig = go.Figure()
             slider_only = False
 
             plot_params = next(item for item in plots_list if item["name"] == surface_plot_var)
+            if plot_params is None:
+                return go.Figure(), {'width': '100%', 'height': '85vh'}, go.Figure(), {'display': 'none'}
 
             # derive axes from the file template JSON
             axes = _axes_from_file_params(file_params) if file_params else ("x", "y")

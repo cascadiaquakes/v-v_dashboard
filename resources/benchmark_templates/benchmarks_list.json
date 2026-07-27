@@ -16,22 +16,12 @@
       {
         "id": "bp8-qd-PW",
         "prefix": "public_ds/bp8-qd-PW/",
-        "status": "in development"
+        "status": "public"
       },
       {
         "id": "bp8-qd-GS",
         "prefix": "public_ds/bp8-qd-GS/",
-        "status": "in development"
-      },
-      {
-        "id": "bp8-qd",
-        "prefix": "public_ds/bp8-qd/",
-        "status": "in development"
-      },
-      {
-        "id": "bp8-qd-slip2Evolution",
-        "prefix": "public_ds/bp8-qd-slip2Evolution/",
-        "status": "in development"
+        "status": "public"
       }
     ],
     "upload": [
@@ -48,22 +38,12 @@
       {
         "id": "bp8-qd-PW",
         "prefix": "upload/bp8-qd-PW/",
-        "status": "in development"
+        "status": "public"
       },
       {
         "id": "bp8-qd-GS",
         "prefix": "upload/bp8-qd-GS/",
-        "status": "in development"
-      },
-      {
-        "id": "bp8-qd",
-        "prefix": "upload/bp8-qd/",
-        "status": "in development"
-      },
-      {
-        "id": "bp8-qd-slip2Evolution",
-        "prefix": "upload/bp8-qd-slip2Evolution/",
-        "status": "in development"
+        "status": "public"
       }
     ]
   }

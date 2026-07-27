@@ -27,4 +27,4 @@ get_callbacks(app)
 
 if __name__ == '__main__':
     print("http://127.0.0.1:8050/")
-    app.run_server(debug=True)
+    app.run(debug=True)

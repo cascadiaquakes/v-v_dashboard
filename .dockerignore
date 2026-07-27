@@ -1,3 +1,7 @@
 .git
+.idea
 .ipynb_checkpoints
+__pycache__
+*.pyc
 resources
+plot_testing

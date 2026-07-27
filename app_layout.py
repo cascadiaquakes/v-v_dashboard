@@ -92,7 +92,15 @@ def get_main_page():
                                         'textAlign': 'center',
                                         'color': 'black'
                                     }),
-                                    dcc.Tabs(id="tabs-example-graph", value='tab-dataset', children=[
+                                    dcc.Tabs(
+                                        id="tabs-example-graph",
+                                        value='tab-dataset',
+                                        colors={
+                                            "border": "#dee2e6",
+                                            "primary": "#2FA4E7",
+                                            "background": "#ffffff",
+                                        },
+                                        children=[
                                         dcc.Tab(label='Dataset selection', value='tab-dataset', children=[
                                             dbc.Row(
                                                 children=[
@@ -355,5 +363,6 @@ def get_main_page():
             ),
             # store user's dataset
             dcc.Store(id='benchmark-params'),
-            dcc.Store(id="benchmarks-list-store")
+            dcc.Store(id="benchmarks-list-store"),
+            dcc.Store(id="camera-sync-state")
         ])

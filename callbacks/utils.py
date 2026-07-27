@@ -4,6 +4,7 @@ import io
 import json
 import urllib
 from concurrent.futures import ThreadPoolExecutor
+from functools import wraps
 
 import awswrangler as wr
 import boto3
@@ -21,6 +22,7 @@ def set_cache(cache_obj):
 
 def memoize(timeout=None):
     def decorator(func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
             if cache is None:
                 raise ValueError("Cache object is not initialized. Call set_cache() first.")
@@ -79,6 +81,7 @@ def convert_seconds_to_time(seconds):
     return years, days, hours, seconds
 
 
+@memoize(timeout=3600)
 def fetch_group_names_for_benchmark(benchmark_id):
     try:
         bucket_name = "benchmark-vv-data"
@@ -123,8 +126,10 @@ def get_plots_from_json(json_data, file_name):
         return plots
     for file_info in json_data['files']:
         if file_info['name'] == file_name:
+            grid_axes = set((file_info.get('grid') or {}).keys())
+            excluded_axes = grid_axes or {'x', 'y'}
             for var in file_info['var_list']:
-                if var['name'] not in ['x', 'y']:  # "x" and "y"
+                if var['name'] not in excluded_axes:
                     plots.append(var)
     return plots
 
@@ -162,9 +167,12 @@ def get_upload_df(data, filename, var_list):
 async def fetch_data_concurrently(bucket_name, benchmark_id, list_df, receiver):
     """Fetch data concurrently from S3."""
     all_data = []
+    if not list_df:
+        return None
 
     # Use a ThreadPoolExecutor to handle blocking I/O with pandas
-    with ThreadPoolExecutor() as executor:
+    max_workers = min(8, len(list_df))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         loop = asyncio.get_event_loop()
         tasks = []
 
@@ -173,7 +181,7 @@ async def fetch_data_concurrently(bucket_name, benchmark_id, list_df, receiver):
             s3_key = f"public_ds/{benchmark_id}/{file_name}/{receiver}.parquet"
             tasks.append(
                 loop.run_in_executor(
-                    executor, get_s3_dataset, 'benchmark-vv-data', s3_key
+                    executor, get_s3_dataset, bucket_name, s3_key
                 )
             )
 
@@ -186,7 +194,7 @@ async def fetch_data_concurrently(bucket_name, benchmark_id, list_df, receiver):
                 file_name = list_df[i]
                 tmp_df['dataset_name'] = f"{file_name}_rec{receiver}"
                 all_data.append(tmp_df)
-    return pd.concat(all_data) if all_data else None
+    return pd.concat(all_data, ignore_index=True, copy=False) if all_data else None
 
 
 
@@ -216,6 +224,7 @@ def generate_color_mapping(datasets):
     return color_mapping
 
 
+@memoize(timeout=3600)
 def get_metadata(benchmark_id, dataset_name):
     """
     Get metadata for a dataset.
@@ -259,6 +268,7 @@ def render_json(data):
         return html.Span(str(data))
 
 
+@memoize(timeout=3600)
 def get_benchmark_params(search):
     """
     Get benchmark parameters from metadata.
@@ -277,6 +287,7 @@ def get_benchmark_params(search):
     except Exception as e:
         raise ValueError(f"Error loading benchmark params: {e}") from e
 
+@memoize(timeout=3600)
 def get_benchmarks_list():
     bucket_name = "benchmark-vv-data"
     key = "public_ds/benchmarks_list.json"

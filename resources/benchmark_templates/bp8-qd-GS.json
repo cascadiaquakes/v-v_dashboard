@@ -108,11 +108,14 @@
       "content": "Slip 2 evolution along strike",
       "graph_type": "surface",
       "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "x"
+      },
       "list_of_receivers": [
         "slip_2_strike"
       ],
       "grid": {
-        "z": {
+        "x": {
           "min": -400.0,
           "max": 400.0,
           "n": 801
@@ -175,7 +178,7 @@
           "description": "time"
         },
         {
-          "name": "x",
+          "name": "z",
           "unit": "m",
           "description": "distance"
         },
@@ -198,11 +201,14 @@
       "content": "Slip 3 evolution along strike",
       "graph_type": "surface",
       "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "x"
+      },
       "list_of_receivers": [
         "slip_3_strike"
       ],
       "grid": {
-        "z": {
+        "x": {
           "min": -400.0,
           "max": 400.0,
           "n": 801
@@ -265,7 +271,7 @@
           "description": "time"
         },
         {
-          "name": "x",
+          "name": "z",
           "unit": "m",
           "description": "distance"
         },
@@ -288,11 +294,15 @@
       "content": "Shear stress 2 evolution along strike",
       "graph_type": "surface",
       "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "x",
+        "slip_name": "shear 2"
+      },
       "list_of_receivers": [
         "shear_stress_2_strike"
       ],
       "grid": {
-        "z": {
+        "x": {
           "min": -400.0,
           "max": 400.0,
           "n": 801
@@ -333,6 +343,9 @@
       "content": "Shear stress 2 evolution along depth",
       "graph_type": "surface",
       "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "slip_name": "shear 2"
+      },
       "list_of_receivers": [
         "shear_stress_2_depth"
       ],
@@ -355,7 +368,7 @@
           "description": "time"
         },
         {
-          "name": "x",
+          "name": "z",
           "unit": "m",
           "description": "distance"
         },
@@ -378,11 +391,15 @@
       "content": "Shear stress 3 evolution along strike",
       "graph_type": "surface",
       "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "x",
+        "slip_name": "shear 3"
+      },
       "list_of_receivers": [
         "shear_stress_3_strike"
       ],
       "grid": {
-        "z": {
+        "x": {
           "min": -400.0,
           "max": 400.0,
           "n": 801
@@ -423,6 +440,9 @@
       "content": "Shear stress 3 evolution along depth",
       "graph_type": "surface",
       "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "slip_name": "shear 3"
+      },
       "list_of_receivers": [
         "shear_stress_3_depth"
       ],
@@ -445,7 +465,7 @@
           "description": "time"
         },
         {
-          "name": "x",
+          "name": "z",
           "unit": "m",
           "description": "distance"
         },
@@ -468,11 +488,15 @@
       "content": "Pore pressure evolution along strike",
       "graph_type": "surface",
       "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "x",
+        "slip_name": "pore pressure"
+      },
       "list_of_receivers": [
         "pore_pressure_strike"
       ],
       "grid": {
-        "z": {
+        "x": {
           "min": -400.0,
           "max": 400.0,
           "n": 801
@@ -495,7 +519,7 @@
           "description": "distance"
         },
         {
-          "name": "Pore pressure",
+          "name": "pore pressure",
           "unit": "MPa",
           "description": "Pore pressure"
         },
@@ -513,6 +537,9 @@
       "content": "Pore pressure evolution along depth",
       "graph_type": "surface",
       "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "slip_name": "pore pressure"
+      },
       "list_of_receivers": [
         "pore_pressure_depth"
       ],
@@ -535,7 +562,7 @@
           "description": "time"
         },
         {
-          "name": "x",
+          "name": "z",
           "unit": "m",
           "description": "distance"
         },

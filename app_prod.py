@@ -25,4 +25,4 @@ app.layout = app_layout.get_main_page()
 get_callbacks(app)
 
 if __name__ == '__main__':
-    app.run_server(debug=False, host='0.0.0.0', port=8081)
+    app.run(debug=False, host='0.0.0.0', port=8081)

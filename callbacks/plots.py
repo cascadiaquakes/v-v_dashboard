@@ -82,19 +82,22 @@ def main_time_plot_dynamic(df, variable_list, x_axis=None, time_axis_unit="s"):
     if x_axis is None:
         x_axis = {"name": "t", "unit": "s", "description": "Time"}
 
+    num_rows = 1
     try:
         # Calculate the number of rows needed for a 2-column layout
         filtered_list = [item for item in variable_list if item['name'] != x_axis['name']]
-        print(f"x_axis variable name: {x_axis['name']}")
-        print(f"Filtered list: {filtered_list}")
         num_vars = len(filtered_list)
+        if df is None or df.empty or num_vars == 0:
+            return go.Figure(), {'width': '100%', 'height': '85vh'}
+
         num_rows = (num_vars + 1) // 2  # Round up to ensure enough rows
-        print(f"Number of variables: {num_vars}, number of rows: {num_rows}")
         # Get unique datasets in the file
-        datasets = df['dataset_name'].unique()
+        datasets = df['dataset_name'].drop_duplicates()
 
         # Generate color mapping for each dataset
         color_mapping = generate_color_mapping(datasets)
+        x_axis_unit = time_axis_label(time_axis_unit) if x_axis['name'] == "t" else x_axis['unit']
+        x_axis_title = f"{x_axis['description']} ({x_axis_unit})"
 
         fig = make_subplots(
             rows=num_rows, cols=2, shared_xaxes=True,
@@ -102,16 +105,23 @@ def main_time_plot_dynamic(df, variable_list, x_axis=None, time_axis_unit="s"):
             vertical_spacing=0.1, horizontal_spacing=0.08
         )
 
-        for dataset_name, group in df.groupby('dataset_name'):
+        for dataset_name, group in df.groupby('dataset_name', sort=False):
             color = color_mapping[dataset_name]
             legend_name = dataset_name.split('_rec', 1)[0]
+            x_values = _axis_display_values(
+                group[x_axis['name']].to_numpy(copy=False),
+                x_axis['name'],
+                time_axis_unit,
+            )
 
             for idx, var in enumerate(filtered_list):
                 row = (idx // 2) + 1
                 col = (idx % 2) + 1
 
                 fig.add_trace(
-                    go.Scatter(
+                    go.Scattergl(
+                        x=x_values,
+                        y=group[var['name']].to_numpy(copy=False),
                         mode='lines',
                         name=legend_name,
                         line={"color": color},
@@ -121,18 +131,11 @@ def main_time_plot_dynamic(df, variable_list, x_axis=None, time_axis_unit="s"):
                     row=row, col=col
                 )
 
-                # Append data to the traces
-                x_values = group[x_axis['name']]
-                if x_axis['name'] == "t":
-                    x_values = x_values / time_axis_factor(time_axis_unit)
-                fig.data[-1].update({'x': x_values, 'y': group[var['name']]})
-
         # Update layout with title and shared x-axis range
-        for idx in range(len(variable_list) + 1):
+        for idx in range(num_vars):
             row = (idx // 2) + 1
             col = (idx % 2) + 1
-            x_axis_unit = time_axis_label(time_axis_unit) if x_axis['name'] == "t" else x_axis['unit']
-            fig.update_xaxes(title_text=f"{x_axis['description']} ({x_axis_unit})", row=row, col=col, showticklabels=True)
+            fig.update_xaxes(title_text=x_axis_title, row=row, col=col, showticklabels=True)
         _match_subplot_axes(fig, x=True)
         for idx, var in enumerate(filtered_list):
             row = (idx // 2) + 1
@@ -185,9 +188,14 @@ def main_surface_plot_dynamic_v2(
     """
     axes: (a0, a1) are the two grid axes in df. Slider is applied along a1.
     """
+    num_rows = 1
     try:
+        if df is None or df.empty:
+            return go.Figure(), {"width": "100%", "height": "85vh"}
+
         a0, a1 = axes
         axis_meta = axis_meta or {}
+        var_name = variable_dict["name"]
 
         if cross_axis is None:
             cross_axis = a1  # preserve old behavior
@@ -196,15 +204,23 @@ def main_surface_plot_dynamic_v2(
             print(f"[WARN] cross_axis={cross_axis!r} not in axes={axes}; defaulting to {a1!r}")
             cross_axis = a1
 
-        datasets = df["dataset_name"].unique()
+        datasets = df["dataset_name"].drop_duplicates().to_numpy()
         num_ds = len(datasets)
         num_rows = num_ds // 2 + num_ds % 2
         num_cols = 1 if num_ds == 1 else 2
 
         if colorbar_max is None:
-            colorbar_max = df[variable_dict["name"]].max()
+            colorbar_max = df[var_name].max()
         if colorbar_min is None:
-            colorbar_min = df[variable_dict["name"]].min()
+            colorbar_min = df[var_name].min()
+
+        same_units = (
+                _axis_unit(a0, axis_meta, time_axis_unit) ==
+                _axis_unit(a1, axis_meta, time_axis_unit)
+        )
+        x_axis_title = _axis_label(a0, axis_meta, time_axis_unit)
+        y_axis_title = _axis_label(a1, axis_meta, time_axis_unit)
+        z_axis_title = f"{var_name} ({variable_dict['unit']})"
 
         fig = make_subplots(
             rows=num_rows,
@@ -217,23 +233,27 @@ def main_surface_plot_dynamic_v2(
             vertical_spacing=0.1,
             horizontal_spacing=0.08,
         )
+        layout_updates = {}
 
-        for i, dataset_name in enumerate(datasets):
+        for i, (dataset_name, dataset_df) in enumerate(df.groupby("dataset_name", sort=False)):
             row = (i // num_cols) + 1
             col = (i % num_cols) + 1
-            dataset_df = df[df["dataset_name"] == dataset_name]
 
-            cross_vals = np.sort(dataset_df[cross_axis].unique())
             raw_slider = _axis_raw_value(slider, cross_axis, time_axis_unit)
-            slider_val = cross_vals[np.abs(cross_vals - raw_slider).argmin()]
 
-            a0_unique = np.sort(dataset_df[a0].unique())
-            a1_unique = np.sort(dataset_df[a1].unique())
+            pivoted = dataset_df.pivot(index=a1, columns=a0, values=var_name).sort_index().sort_index(axis=1)
+            a0_unique = pivoted.columns.to_numpy()
+            a1_unique = pivoted.index.to_numpy()
+            if len(a0_unique) == 0 or len(a1_unique) == 0:
+                continue
+
             a0_display = _axis_display_values(a0_unique, a0, time_axis_unit)
             a1_display = _axis_display_values(a1_unique, a1, time_axis_unit)
-            slider_display = _axis_display_value(slider_val, cross_axis, time_axis_unit)
+            v_2d = pivoted.to_numpy(copy=False)
 
-            v_2d = dataset_df.pivot(index=a1, columns=a0, values=variable_dict["name"]).values
+            cross_vals = a1_unique if cross_axis == a1 else a0_unique
+            slider_val = cross_vals[np.abs(cross_vals - raw_slider).argmin()]
+            slider_display = _axis_display_value(slider_val, cross_axis, time_axis_unit)
 
             if plot_type == "3d_surface":
                 fig.add_trace(
@@ -244,7 +264,7 @@ def main_surface_plot_dynamic_v2(
                         colorscale="RdBu_r",
                         cmin=colorbar_min,
                         cmax=colorbar_max,
-                        colorbar={"title": f"{variable_dict['name']} ({variable_dict['unit']})"},
+                        colorbar={"title": f"{z_axis_title}"},
                     ),
                     row=row,
                     col=col,
@@ -257,12 +277,11 @@ def main_surface_plot_dynamic_v2(
                     # constant a1 (horizontal slice), vary a0
                     a1_index = np.abs(a1_unique - slider_val).argmin()
                     const_val = a1_unique[a1_index]
-                    line_df = dataset_df[dataset_df[a1] == const_val].sort_values(a0)
 
                     fig.add_trace(go.Scatter3d(
-                        x=_axis_display_values(line_df[a0].to_numpy(), a0, time_axis_unit),
-                        y=np.full(len(line_df), _axis_display_value(const_val, a1, time_axis_unit)),
-                        z=line_df[variable_dict["name"]].to_numpy(),
+                        x=a0_display,
+                        y=np.full(len(a0_display), _axis_display_value(const_val, a1, time_axis_unit)),
+                        z=v_2d[a1_index],
                         mode="lines",
                         line={"color": "black", "width": 3},
                         showlegend=False,
@@ -273,12 +292,11 @@ def main_surface_plot_dynamic_v2(
                     # constant a0 (vertical slice), vary a1
                     a0_index = np.abs(a0_unique - slider_val).argmin()
                     const_val = a0_unique[a0_index]
-                    line_df = dataset_df[dataset_df[a0] == const_val].sort_values(a1)
 
                     fig.add_trace(go.Scatter3d(
-                        x=np.full(len(line_df), _axis_display_value(const_val, a0, time_axis_unit)),
-                        y=_axis_display_values(line_df[a1].to_numpy(), a1, time_axis_unit),
-                        z=line_df[variable_dict["name"]].to_numpy(),
+                        x=np.full(len(a1_display), _axis_display_value(const_val, a0, time_axis_unit)),
+                        y=a1_display,
+                        z=v_2d[:, a0_index],
                         mode="lines",
                         line={"color": "black", "width": 3},
                         showlegend=False,
@@ -288,9 +306,9 @@ def main_surface_plot_dynamic_v2(
                 fig.update_layout(
                     {
                         scene_key: {
-                            "xaxis": {"title": _axis_label(a0, axis_meta, time_axis_unit)},
-                            "yaxis": {"title": _axis_label(a1, axis_meta, time_axis_unit)},
-                            "zaxis": {"title": f"{variable_dict['name']} ({variable_dict['unit']})"},
+                            "xaxis": {"title":x_axis_title},
+                            "yaxis": {"title":y_axis_title},
+                            "zaxis": {"title":z_axis_title},
                         }
                     }
                 )
@@ -304,7 +322,7 @@ def main_surface_plot_dynamic_v2(
                         zmin=colorbar_min,
                         zmax=colorbar_max,
                         colorscale="RdBu_r",
-                        colorbar={"title": f"{variable_dict['name']} ({variable_dict['unit']})"},
+                        colorbar={"title": z_axis_title},
                     ),
                     row=row,
                     col=col,
@@ -331,44 +349,38 @@ def main_surface_plot_dynamic_v2(
 
                 xaxis_key = f"xaxis{i + 1}" if i > 0 else "xaxis"
                 yaxis_key = f"yaxis{i + 1}" if i > 0 else "yaxis"
-                same_units = (
-                        _axis_unit(a0, axis_meta, time_axis_unit) ==
-                        _axis_unit(a1, axis_meta, time_axis_unit)
-                )
 
                 if same_units:
                     fig.update_layout({
                         xaxis_key: {
-                            "title": _axis_label(a0, axis_meta, time_axis_unit),
-                            "scaleanchor": f"y{i + 1}" if i > 0 else "y",
+                            "title":_axis_label(a0, axis_meta, time_axis_unit),
+                            "scaleanchor":f"y{i + 1}" if i > 0 else "y",
                         },
-                        yaxis_key: {"title": _axis_label(a1, axis_meta, time_axis_unit)},
+                        yaxis_key: {
+                            "title":_axis_label(a1, axis_meta, time_axis_unit)
+                        },
                     })
                 else:
-                    fig.update_layout({
-                        xaxis_key: {"title": _axis_label(a0, axis_meta, time_axis_unit)},
-                        yaxis_key: {"title": _axis_label(a1, axis_meta, time_axis_unit)},
-                    })
+                    layout_updates[xaxis_key] = {"title":x_axis_title}
+                    layout_updates[yaxis_key] = {"title":y_axis_title}
+
+        if layout_updates:
+            fig.update_layout(layout_updates)
 
         if plot_type == "3d_surface":
             fig.update_layout(
-                title=f"Surface Plot of {_axis_label(a0, axis_meta, time_axis_unit)} vs {_axis_label(a1, axis_meta, time_axis_unit)} colored by {variable_dict['name']} [{variable_dict['unit']}] (Re-gridded)",
+                title=f"Surface Plot of {x_axis_title} vs {y_axis_title} colored by {var_name} [{variable_dict['unit']}] (Re-gridded)",
                 template="plotly_white",
             )
         else:
             fig.update_layout(
-                title=f"Heatmap of {_axis_label(a0, axis_meta, time_axis_unit)} vs {_axis_label(a1, axis_meta, time_axis_unit)} colored by {variable_dict['name']} [{variable_dict['unit']}] (Re-gridded)",
+                title=f"Heatmap of {x_axis_title} vs {y_axis_title} colored by {var_name} [{variable_dict['unit']}] (Re-gridded)",
                 template="plotly_white",
             )
 
-            # Only match axes when we're NOT locking aspect.
-            same_units = (
-                    _axis_unit(a0, axis_meta, time_axis_unit) ==
-                    _axis_unit(a1, axis_meta, time_axis_unit)
-            )
-            if not same_units:
-                # safe: consistent scales across subplots without aspect lock
-                _match_subplot_axes(fig, x=True, y=True)
+            # Keep subplot zoom ranges synchronized. For same-unit axes, the
+            # primary subplot owns the aspect lock and the others match it.
+            _match_subplot_axes(fig, x=True, y=True)
 
     except Exception as e:  # noqa: BLE001 - return a fallback plot for invalid datasets
         print(f"Error plotting dataset: {e}")
@@ -383,8 +395,12 @@ def main_surface_plot_dynamic_v2(
 
 def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_axis=None, axis_meta=None, time_axis_unit="s"):
     try:
+        if df is None or df.empty:
+            return go.Figure()
+
         a0, a1 = axes
         axis_meta = axis_meta or {}
+        var_name = variable_dict["name"]
 
         # default: preserve old behavior (slice at a1)
         if cross_axis is None:
@@ -406,16 +422,23 @@ def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_a
 
         # Filter for the selected slice
         df_cross = df[df[cross_axis] == slider_val]
+        if df_cross.empty:
+            return go.Figure()
+
         fig = go.Figure()
 
         # Add traces for each dataset_name
-        for dataset in df_cross["dataset_name"].unique():
-            dataset_df = df_cross[df_cross["dataset_name"] == dataset].sort_values(profile_axis)
+        for dataset, dataset_df in df_cross.groupby("dataset_name", sort=False):
+            dataset_df = dataset_df.sort_values(profile_axis)
 
             fig.add_trace(
                 go.Scattergl(
-                    x=_axis_display_values(dataset_df[profile_axis], profile_axis, time_axis_unit),
-                    y=dataset_df[variable_dict["name"]],
+                    x=_axis_display_values(
+                        dataset_df[profile_axis].to_numpy(copy=False),
+                        profile_axis,
+                        time_axis_unit,
+                    ),
+                    y=dataset_df[var_name].to_numpy(copy=False),
                     mode="lines",
                     name=dataset,
                     line={"width": 2},
@@ -423,9 +446,9 @@ def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_a
             )
 
         fig.update_layout(
-            title=f"Cross section of {variable_dict['name']} at {_axis_label(cross_axis, axis_meta, time_axis_unit)}={slider_display:.6g}",
+            title=f"Cross section of {var_name} at {_axis_label(cross_axis, axis_meta, time_axis_unit)}={slider_display:.6g}",
             xaxis_title=_axis_label(profile_axis, axis_meta, time_axis_unit),
-            yaxis_title=f"{variable_dict['name']} ({variable_dict['unit']})",
+            yaxis_title=f"{var_name} ({variable_dict['unit']})",
             legend_title="Dataset Name",
             template="plotly_white",
         )
