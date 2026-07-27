@@ -1,8 +1,8 @@
 import dash
-from dash import dcc, html
-from dash.dependencies import Input, Output
 import pandas as pd
 import plotly.graph_objects as go
+from dash import dcc, html
+from dash.dependencies import Input, Output
 
 # Assuming your dataframe is named df
 df = pd.read_csv("../resources/fabian_examples/surfdef_tpv36.csv", comment='#', delim_whitespace=True)
@@ -18,22 +18,22 @@ fig = go.Figure(data=go.Scattergl(
     x=[],
     y=[],
     mode='markers',
-    marker=dict(
-        color=[],
-        colorscale='RdBu_r',  # Reversed RdBu colormap
-        colorbar=dict(title='v-disp'),
-        showscale=True,
-        cmin=df['v-disp'].min(),
-        cmax=df['v-disp'].max(),
-        size=5  # Default marker size
-    )
+    marker={
+        "color": [],
+        "colorscale": 'RdBu_r',  # Reversed RdBu colormap
+        "colorbar": {"title": 'v-disp'},
+        "showscale": True,
+        "cmin": df['v-disp'].min(),
+        "cmax": df['v-disp'].max(),
+        "size": 5  # Default marker size
+    }
 ))
 
 # Update layout
 fig.update_layout(
     title='Scatter Plot of x vs z colored by h-disp (Dynamic Resampling)',
-    xaxis=dict(title='x'),
-    yaxis=dict(title='z'),
+    xaxis={"title": 'x'},
+    yaxis={"title": 'z'},
     template='plotly_white',
     width=800,
     height=800
@@ -78,10 +78,10 @@ def update_scatter_plot(relayout_data):
     fig.update_traces(
         x=subsampled_df['x'],
         y=subsampled_df['z'],
-        marker=dict(
-            color=subsampled_df['v-disp'],
-            size=3  # Adjust marker size if needed
-        )
+        marker={
+            "color": subsampled_df['v-disp'],
+            "size": 3  # Adjust marker size if needed
+        }
     )
 
     return fig

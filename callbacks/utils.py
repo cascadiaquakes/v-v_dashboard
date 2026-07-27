@@ -1,13 +1,14 @@
+import asyncio
 import base64
+import io
 import json
 import urllib
-import plotly.express as px
+from concurrent.futures import ThreadPoolExecutor
+
+import awswrangler as wr
 import boto3
 import pandas as pd
-import io
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-import awswrangler as wr
+import plotly.express as px
 from dash import html
 
 # Global variable to store the cache object
@@ -25,7 +26,7 @@ def memoize(timeout=None):
                 raise ValueError("Cache object is not initialized. Call set_cache() first.")
 
             # Generate a cache key based on the function name and arguments
-            cache_key = f"{func.__name__}_{str(args)}_{str(kwargs)}"
+            cache_key = f"{func.__name__}_{args!s}_{kwargs!s}"
 
             # Check if the data is already in the cache
             cached_data = cache.get(cache_key)
@@ -57,7 +58,7 @@ def get_s3_dataset(bucket_name, s3_key):
         df = wr.s3.read_parquet(f"s3://{bucket_name}/{s3_key}")
         return df
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - callers use None for any unreadable dataset
         print(f"Error fetching {s3_key}: {e}")
         return None
 
@@ -75,7 +76,6 @@ def convert_seconds_to_time(seconds):
     years = seconds / (365.25 * 24 * 3600)
     days = (seconds / (24 * 3600))
     hours = seconds / 3600
-    seconds = seconds
     return years, days, hours, seconds
 
 
@@ -101,7 +101,7 @@ def fetch_group_names_for_benchmark(benchmark_id):
 
         result = sorted(group_names)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - return the UI fallback for any S3 failure
         print(f"Error fetching datasets: {e}")
         result = {'no datasets found'}
     return result
@@ -143,7 +143,7 @@ def get_upload_df(data, filename, var_list):
     if data is None:
         return None
     try:
-        content_type, content_string = data.split(',')
+        _content_type, content_string = data.split(',')
         decoded = base64.b64decode(content_string)
         df = pd.read_csv(io.StringIO(decoded.decode('utf-8')), comment='#', delim_whitespace=True)
         expected_columns = [var['name'] for var in var_list]
@@ -154,7 +154,7 @@ def get_upload_df(data, filename, var_list):
             return None
         df['dataset_name'] = filename
         return df
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - reject any malformed upload as a unit
         print(f"Error reading uploaded data: {e}")
         return None
 
@@ -233,7 +233,7 @@ def get_metadata(benchmark_id, dataset_name):
         response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
         metadata = response['Body'].read().decode('utf-8')
         return render_json(json.loads(metadata))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - metadata is optional in the UI
         print(f"Error fetching metadata: {e}")
         return None
 
@@ -275,7 +275,7 @@ def get_benchmark_params(search):
         template = json.loads(template_content)
         return template
     except Exception as e:
-        raise ValueError(f"Error loading benchmark params: {e}")
+        raise ValueError(f"Error loading benchmark params: {e}") from e
 
 def get_benchmarks_list():
     bucket_name = "benchmark-vv-data"

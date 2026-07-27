@@ -1,16 +1,15 @@
-import os
 import json
+import os
 import warnings
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
+from io import BytesIO, StringIO
 
 import boto3
-import pandas as pd
-from io import StringIO, BytesIO
-
-from sklearn.neighbors import KDTree
 import numpy as np
-from botocore.exceptions import NoCredentialsError, ClientError
+import pandas as pd
+from botocore.exceptions import ClientError, NoCredentialsError
+from sklearn.neighbors import KDTree
 
 # Initialize AWS clients
 s3 = boto3.client("s3")
@@ -235,7 +234,7 @@ def process_zip(bucket_name, zip_key, benchmark_pb, code_name, version, user_met
         template = json.loads(template_content)
         print("template loaded successfully")
     except Exception as e:
-        raise ValueError(f"Error loading template {template_key}: {e}")
+        raise ValueError(f"Error loading template {template_key}: {e}") from e
 
     with zipfile.ZipFile(BytesIO(zip_obj['Body'].read())) as zip_obj:
         zip_file_list = zip_obj.namelist()
@@ -318,7 +317,7 @@ def handler(event, context):
             return {"error": "userId not found in S3 object metadata"}
 
         # Write initial status to DynamoDB
-        timestamp = datetime.utcnow().isoformat() + "Z"  # ISO format with UTC timezone
+        timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
         table.put_item(
             Item={
@@ -337,7 +336,7 @@ def handler(event, context):
         print(f'Processing benchmark {benchmark_pb}, code {code_name}, version {version}')
         try:
             process_zip(bucket_name, zip_key, benchmark_pb, code_name, version, user_metadata)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - record any processing failure in DynamoDB
             print(f"Error processing {zip_key}: {e}")
             if user_id and file_id:
                 table.update_item(

@@ -1,5 +1,6 @@
-import os
 import json
+import os
+
 import boto3
 from botocore.exceptions import ClientError
 
@@ -94,9 +95,9 @@ def lambda_handler(event, context):
             'headers': cors_headers,
             'body': json.dumps({'error': f'A database error occurred: {error_message}'})
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Lambda boundary must return a generic 500 response
         # Catch any other unexpected errors during execution.
-        print(f"An unexpected error occurred: {str(e)}")
+        print(f"An unexpected error occurred: {e!s}")
         return {
             'statusCode': 500,
             'headers': cors_headers,

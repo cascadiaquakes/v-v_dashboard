@@ -1,8 +1,9 @@
 import dash
 import dash_bootstrap_components as dbc
+from flask_caching import Cache
+
 import app_layout
 from callbacks.callbacks import get_callbacks
-from flask_caching import Cache
 from callbacks.utils import set_cache
 
 app = dash.Dash(external_stylesheets=[dbc.themes.CERULEAN], title="DET code verification platform")

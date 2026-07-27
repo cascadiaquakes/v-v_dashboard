@@ -1,20 +1,46 @@
 from aws_cdk import (
-    Stack,
-    Duration,
-    aws_ec2 as ec2,
-    aws_ecr as ecr,
-    aws_iam as iam,
-    aws_ecs as ecs,
-    aws_ecs_patterns as ecs_patterns,
-    aws_s3 as s3,
-    aws_lambda as _lambda,
-    aws_dynamodb as dynamodb,
-    aws_stepfunctions as sfn,
-    aws_stepfunctions_tasks as tasks,
-    aws_events_targets as targets,
-    aws_events as events,
-    aws_apigateway as apigateway,
     CfnOutput,
+    Duration,
+    Stack,
+)
+from aws_cdk import (
+    aws_apigateway as apigateway,
+)
+from aws_cdk import (
+    aws_dynamodb as dynamodb,
+)
+from aws_cdk import (
+    aws_ec2 as ec2,
+)
+from aws_cdk import (
+    aws_ecr as ecr,
+)
+from aws_cdk import (
+    aws_ecs as ecs,
+)
+from aws_cdk import (
+    aws_ecs_patterns as ecs_patterns,
+)
+from aws_cdk import (
+    aws_events as events,
+)
+from aws_cdk import (
+    aws_events_targets as targets,
+)
+from aws_cdk import (
+    aws_iam as iam,
+)
+from aws_cdk import (
+    aws_lambda as _lambda,
+)
+from aws_cdk import (
+    aws_s3 as s3,
+)
+from aws_cdk import (
+    aws_stepfunctions as sfn,
+)
+from aws_cdk import (
+    aws_stepfunctions_tasks as tasks,
 )
 from constructs import Construct
 
@@ -135,12 +161,12 @@ class DashboardStack(Stack):
         fargate_kwargs = {}
         if not include_ecs_private_endpoints:
             fargate_kwargs.update(
-                dict(
-                    task_subnets=ec2.SubnetSelection(
+                {
+                    "task_subnets": ec2.SubnetSelection(
                         subnet_type=ec2.SubnetType.PUBLIC
                     ),
-                    assign_public_ip=True,
-                )
+                    "assign_public_ip": True,
+                }
             )
 
         # Fargate Service + ALB

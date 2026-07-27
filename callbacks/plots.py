@@ -1,9 +1,9 @@
 
-from callbacks.utils import generate_color_mapping
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
 import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
+from callbacks.utils import generate_color_mapping
 
 TIME_UNIT_FACTORS = {
     "s": 1.0,
@@ -69,7 +69,7 @@ def _match_subplot_axes(fig, *, x=False, y=False):
         fig.layout.yaxis.matches = None
 
 
-def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s', 'description':'Time'}), time_axis_unit="s"):
+def main_time_plot_dynamic(df, variable_list, x_axis=None, time_axis_unit="s"):
     """
     Generate a dynamic plot with subplots based on a list of variable dictionaries.
 
@@ -79,6 +79,9 @@ def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s
     Returns:
     FigureResampler: Plotly figure object with dynamic resampling enabled.
     """
+    if x_axis is None:
+        x_axis = {"name": "t", "unit": "s", "description": "Time"}
+
     try:
         # Calculate the number of rows needed for a 2-column layout
         filtered_list = [item for item in variable_list if item['name'] != x_axis['name']]
@@ -111,7 +114,7 @@ def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s
                     go.Scatter(
                         mode='lines',
                         name=legend_name,
-                        line=dict(color=color),
+                        line={"color": color},
                         showlegend=idx == 0,  # Show legend only for the first subplot
                         legendgroup=dataset_name,
                     ),
@@ -125,7 +128,7 @@ def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s
                 fig.data[-1].update({'x': x_values, 'y': group[var['name']]})
 
         # Update layout with title and shared x-axis range
-        for idx in range(0, len(variable_list) + 1):
+        for idx in range(len(variable_list) + 1):
             row = (idx // 2) + 1
             col = (idx % 2) + 1
             x_axis_unit = time_axis_label(time_axis_unit) if x_axis['name'] == "t" else x_axis['unit']
@@ -141,7 +144,7 @@ def main_time_plot_dynamic(df, variable_list, x_axis=dict({'name':'t', 'unit':'s
             showlegend=True
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - return a fallback plot for invalid datasets
         print(f"error plotting dataset: {e}")
         # Fallback plot in case of error
         fig = make_subplots(
@@ -241,7 +244,7 @@ def main_surface_plot_dynamic_v2(
                         colorscale="RdBu_r",
                         cmin=colorbar_min,
                         cmax=colorbar_max,
-                        colorbar=dict(title=f"{variable_dict['name']} ({variable_dict['unit']})"),
+                        colorbar={"title": f"{variable_dict['name']} ({variable_dict['unit']})"},
                     ),
                     row=row,
                     col=col,
@@ -261,7 +264,7 @@ def main_surface_plot_dynamic_v2(
                         y=np.full(len(line_df), _axis_display_value(const_val, a1, time_axis_unit)),
                         z=line_df[variable_dict["name"]].to_numpy(),
                         mode="lines",
-                        line=dict(color="black", width=3),
+                        line={"color": "black", "width": 3},
                         showlegend=False,
                         scene=scene_key,
                     ), row=row, col=col)
@@ -277,18 +280,18 @@ def main_surface_plot_dynamic_v2(
                         y=_axis_display_values(line_df[a1].to_numpy(), a1, time_axis_unit),
                         z=line_df[variable_dict["name"]].to_numpy(),
                         mode="lines",
-                        line=dict(color="black", width=3),
+                        line={"color": "black", "width": 3},
                         showlegend=False,
                         scene=scene_key,
                     ), row=row, col=col)
 
                 fig.update_layout(
                     {
-                        scene_key: dict(
-                            xaxis=dict(title=_axis_label(a0, axis_meta, time_axis_unit)),
-                            yaxis=dict(title=_axis_label(a1, axis_meta, time_axis_unit)),
-                            zaxis=dict(title=f"{variable_dict['name']} ({variable_dict['unit']})"),
-                        )
+                        scene_key: {
+                            "xaxis": {"title": _axis_label(a0, axis_meta, time_axis_unit)},
+                            "yaxis": {"title": _axis_label(a1, axis_meta, time_axis_unit)},
+                            "zaxis": {"title": f"{variable_dict['name']} ({variable_dict['unit']})"},
+                        }
                     }
                 )
 
@@ -301,7 +304,7 @@ def main_surface_plot_dynamic_v2(
                         zmin=colorbar_min,
                         zmax=colorbar_max,
                         colorscale="RdBu_r",
-                        colorbar=dict(title=f"{variable_dict['name']} ({variable_dict['unit']})"),
+                        colorbar={"title": f"{variable_dict['name']} ({variable_dict['unit']})"},
                     ),
                     row=row,
                     col=col,
@@ -313,7 +316,7 @@ def main_surface_plot_dynamic_v2(
                         x=[a0_display.min(), a0_display.max()],
                         y=[slider_display, slider_display],
                         mode="lines",
-                        line=dict(color="black", width=1),
+                        line={"color": "black", "width": 1},
                         showlegend=False,
                     ), row=row, col=col)
                 else:
@@ -322,7 +325,7 @@ def main_surface_plot_dynamic_v2(
                         x=[slider_display, slider_display],
                         y=[a1_display.min(), a1_display.max()],
                         mode="lines",
-                        line=dict(color="black", width=1),
+                        line={"color": "black", "width": 1},
                         showlegend=False,
                     ), row=row, col=col)
 
@@ -335,16 +338,16 @@ def main_surface_plot_dynamic_v2(
 
                 if same_units:
                     fig.update_layout({
-                        xaxis_key: dict(
-                            title=_axis_label(a0, axis_meta, time_axis_unit),
-                            scaleanchor=f"y{i + 1}" if i > 0 else "y",
-                        ),
-                        yaxis_key: dict(title=_axis_label(a1, axis_meta, time_axis_unit)),
+                        xaxis_key: {
+                            "title": _axis_label(a0, axis_meta, time_axis_unit),
+                            "scaleanchor": f"y{i + 1}" if i > 0 else "y",
+                        },
+                        yaxis_key: {"title": _axis_label(a1, axis_meta, time_axis_unit)},
                     })
                 else:
                     fig.update_layout({
-                        xaxis_key: dict(title=_axis_label(a0, axis_meta, time_axis_unit)),
-                        yaxis_key: dict(title=_axis_label(a1, axis_meta, time_axis_unit)),
+                        xaxis_key: {"title": _axis_label(a0, axis_meta, time_axis_unit)},
+                        yaxis_key: {"title": _axis_label(a1, axis_meta, time_axis_unit)},
                     })
 
         if plot_type == "3d_surface":
@@ -367,7 +370,7 @@ def main_surface_plot_dynamic_v2(
                 # safe: consistent scales across subplots without aspect lock
                 _match_subplot_axes(fig, x=True, y=True)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - return a fallback plot for invalid datasets
         print(f"Error plotting dataset: {e}")
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines", name="plot error"))
@@ -415,7 +418,7 @@ def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_a
                     y=dataset_df[variable_dict["name"]],
                     mode="lines",
                     name=dataset,
-                    line=dict(width=2),
+                    line={"width": 2},
                 )
             )
 
@@ -429,7 +432,7 @@ def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_a
 
         return fig
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - return a fallback plot for invalid datasets
         print(f"error plotting dataset: {e}")
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=[0, 1, 2, 3], y=[0, 1, 2, 3], mode="lines", name="fallback"))

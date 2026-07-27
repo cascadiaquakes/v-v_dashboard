@@ -1,20 +1,26 @@
 import dash
-import pandas as pd
+import dash_bootstrap_components as dbc
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
+from dash import ctx, html, no_update
+
 from callbacks.plots import (
-    main_time_plot_dynamic,
-    main_surface_plot_dynamic_v2,
     cross_section_plots,
+    main_surface_plot_dynamic_v2,
+    main_time_plot_dynamic,
     time_axis_factor,
     time_axis_label,
 )
-from callbacks.utils import get_df, get_upload_df, fetch_group_names_for_benchmark, get_metadata, get_benchmark_params, \
-    get_plots_from_json, get_benchmarks_list
-from dash import ctx, no_update, html
-import dash_bootstrap_components as dbc
-
-
+from callbacks.utils import (
+    fetch_group_names_for_benchmark,
+    get_benchmark_params,
+    get_benchmarks_list,
+    get_df,
+    get_metadata,
+    get_plots_from_json,
+    get_upload_df,
+)
 
 # some helpers
 
@@ -119,7 +125,7 @@ def get_callbacks(app):
             fig = go.Figure()
             slider_only = False
 
-            plot_params = [item for item in plots_list if item["name"] == surface_plot_var][0]
+            plot_params = next(item for item in plots_list if item["name"] == surface_plot_var)
 
             # derive axes from the file template JSON
             axes = _axes_from_file_params(file_params) if file_params else ("x", "y")
@@ -271,12 +277,12 @@ def get_callbacks(app):
         try:
             benchmark_params = get_benchmark_params(search)  # unchanged
             return benchmark_params, no_update, False, no_update
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - surface any benchmark loading failure in the modal
             print(f"Error fetching benchmark params: {e}")
 
             try:
                 blist = get_benchmarks_list()
-            except Exception as e2:
+            except Exception as e2:  # noqa: BLE001 - the modal must still open if the list cannot load
                 print(f"Error loading benchmarks list: {e2}")
                 blist = None
 

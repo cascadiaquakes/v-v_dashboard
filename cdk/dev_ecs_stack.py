@@ -2,11 +2,23 @@ from aws_cdk import (
     CfnOutput,
     Stack,
     Tags,
+)
+from aws_cdk import (
     aws_ec2 as ec2,
+)
+from aws_cdk import (
     aws_ecr as ecr,
+)
+from aws_cdk import (
     aws_ecs as ecs,
+)
+from aws_cdk import (
     aws_ecs_patterns as ecs_patterns,
+)
+from aws_cdk import (
     aws_iam as iam,
+)
+from aws_cdk import (
     aws_s3 as s3,
 )
 from constructs import Construct
