@@ -217,11 +217,29 @@ def read_data_for_template(file_content: str, file_info: dict) -> pd.DataFrame:
 
     raise ValueError(f"Unknown reader '{reader}' for prefix={file_info.get('prefix')}")
 
-def process_zip(bucket_name, zip_key, benchmark_pb, code_name, version, user_metadata=None, **kwargs):
+def new_processing_summary():
+    """Return the DynamoDB-safe summary shape used throughout processing."""
+    return {
+        "successfulFiles": [],
+        "missingFiles": [],
+        "filesWithErrors": [],
+    }
+
+
+def process_zip(
+    bucket_name,
+    zip_key,
+    benchmark_pb,
+    code_name,
+    version,
+    user_metadata=None,
+    processing_summary=None,
+    **kwargs,
+):
     output_folder = f"/tmp/{code_name}_{version}/"
     os.makedirs(output_folder, exist_ok=True)
 
-    file_list = []
+    summary = processing_summary if processing_summary is not None else new_processing_summary()
     file_header = {}  # Now accumulates header per prefix
 
     # Download and unzip the file
@@ -249,52 +267,81 @@ def process_zip(bucket_name, zip_key, benchmark_pb, code_name, version, user_met
                 if os.path.basename(f).startswith(prefix) and f.endswith(f".{file_type}")
             ]
             print(f"number of matching files for {prefix} {len(matching_files)}")
+            if not matching_files:
+                summary["missingFiles"].append({
+                    "prefix": prefix,
+                    "fileType": file_type,
+                    "expectedPattern": f"{prefix}*.{file_type}",
+                })
+                continue
+
             for file_name in matching_files:
-                # Read and validate file
-                with zip_obj.open(file_name) as file:
-                    file_content = file.read().decode('utf-8')
+                try:
+                    with zip_obj.open(file_name) as file:
+                        file_content = file.read().decode('utf-8')
 
-                    # Only extract header once per prefix (e.g., first matching file)
-                    if prefix not in file_header:
-                        file_header = extract_header(file_header, prefix, file_content)
+                        if prefix not in file_header:
+                            file_header = extract_header(file_header, prefix, file_content)
 
-                    df = read_data_for_template(file_content, expected_structure)
+                        df = read_data_for_template(file_content, expected_structure)
+                        var_list = expected_structure['var_list']
+                        expected_columns = [var['name'].lower() for var in var_list]
+                        df_columns_lowercase = [col.lower() for col in df.columns]
 
-                    # Validate columns
-                    var_list = expected_structure['var_list']
-                    expected_columns = [var['name'].lower() for var in
-                                        var_list]  # Convert expected columns to lowercase
-                    df_columns_lowercase = [col.lower() for col in df.columns]  # Convert actual columns to lowercase
+                        if df_columns_lowercase != expected_columns:
+                            error_message = (
+                                f"File {os.path.basename(file_name)} does not match "
+                                f"the expected structure. Expected columns: "
+                                f"{expected_columns}, found columns: "
+                                f"{df_columns_lowercase}"
+                            )
+                            warnings.warn(error_message)
+                            summary["filesWithErrors"].append({
+                                "fileName": file_name,
+                                "error": error_message,
+                            })
+                            continue
 
-                    if df_columns_lowercase != expected_columns:
-                        warnings.warn(
-                            f"File {os.path.basename(file_name)} does not match the expected structure. Expected columns: {expected_columns}, found columns: {df_columns_lowercase}")
-                        continue
+                        df.columns = df.columns.str.lower()
+                        if "grid" in expected_structure:
+                            df = interpolate_data(df, expected_structure['grid'])
 
-                    # Force DataFrame column names to lowercase
-                    df.columns = df.columns.str.lower()
+                        output_path = os.path.join(
+                            output_folder,
+                            f"{os.path.splitext(os.path.basename(file_name))[0]}.parquet",
+                        )
+                        df.to_parquet(output_path, index=False)
 
-                    if "grid" in expected_structure:
-                        df = interpolate_data(df, expected_structure['grid'])
-                    # Save as Parquet
-                    output_path = os.path.join(output_folder,
-                                               f"{os.path.splitext(os.path.basename(file_name))[0]}.parquet")
-                    df.to_parquet(output_path, index=False)
-
-                # Upload the Parquet file to the main bucket with the benchmark_pb structure
-                target_key = f"public_ds/{benchmark_pb}/{code_name}_{version}/{os.path.basename(output_path)}"
-                s3.upload_file(output_path, "benchmark-vv-data", target_key, ExtraArgs={"Metadata": user_metadata})
-                file_list.append(file_name)
-                os.remove(output_path)
+                    target_key = (
+                        f"public_ds/{benchmark_pb}/{code_name}_{version}/"
+                        f"{os.path.basename(output_path)}"
+                    )
+                    s3.upload_file(
+                        output_path,
+                        "benchmark-vv-data",
+                        target_key,
+                        ExtraArgs={"Metadata": user_metadata},
+                    )
+                    summary["successfulFiles"].append(file_name)
+                    os.remove(output_path)
+                except Exception as e:  # noqa: BLE001 - record before preserving existing failure behavior
+                    error_message = str(e)
+                    print(f"Error processing file {file_name}: {error_message}")
+                    summary["filesWithErrors"].append({
+                        "fileName": file_name,
+                        "error": error_message,
+                    })
+                    raise
 
     # Save metadata as JSON and upload it
-    metadata = {**file_header, "processed_files": file_list}
+    metadata = {**file_header, "processed_files": summary["successfulFiles"]}
     metadata_path = os.path.join(output_folder, "metadata.json")
     with open(metadata_path, 'w') as f:
         json.dump(metadata, f, indent=4)
 
     s3.upload_file(metadata_path, "benchmark-vv-data", f"public_ds/{benchmark_pb}/{code_name}_{version}/metadata.json",
                    ExtraArgs={"Metadata": user_metadata})
+    return summary
 
 
 def handler(event, context):
@@ -318,6 +365,7 @@ def handler(event, context):
 
         # Write initial status to DynamoDB
         timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        processing_summary = new_processing_summary()
 
         table.put_item(
             Item={
@@ -325,6 +373,7 @@ def handler(event, context):
                 "fileId": file_id,
                 "status": "processing",
                 "timestamp": timestamp,  # Add timestamp if available
+                "summary": processing_summary,
             }
         )
 
@@ -335,20 +384,33 @@ def handler(event, context):
         code_name, version = zip_name.rsplit('.', 1)[0].split('_', 1)
         print(f'Processing benchmark {benchmark_pb}, code {code_name}, version {version}')
         try:
-            process_zip(bucket_name, zip_key, benchmark_pb, code_name, version, user_metadata)
+            process_zip(
+                bucket_name,
+                zip_key,
+                benchmark_pb,
+                code_name,
+                version,
+                user_metadata,
+                processing_summary=processing_summary,
+            )
         except Exception as e:  # noqa: BLE001 - record any processing failure in DynamoDB
             print(f"Error processing {zip_key}: {e}")
             if user_id and file_id:
                 table.update_item(
                     Key={"userId": user_id, "fileId": file_id},
-                    UpdateExpression="SET #status = :status, #error = :error",
+                    UpdateExpression=(
+                        "SET #status = :status, #error = :error, "
+                        "#summary = :summary"
+                    ),
                     ExpressionAttributeNames={
                         "#status": "status",
                         "#error": "error",
+                        "#summary": "summary",
                     },
                     ExpressionAttributeValues={
                         ":status": "failed",
                         ":error": str(e),
+                        ":summary": processing_summary,
                     },
                 )
             return {"error": f"Error processing {zip_key}: {e}"}
@@ -356,11 +418,17 @@ def handler(event, context):
         # Update status to "completed"
         table.update_item(
             Key={"userId": user_id, "fileId": file_id},
-            UpdateExpression="SET #status = :status",
-            ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={":status": "completed"},
+            UpdateExpression="SET #status = :status, #summary = :summary",
+            ExpressionAttributeNames={
+                "#status": "status",
+                "#summary": "summary",
+            },
+            ExpressionAttributeValues={
+                ":status": "completed",
+                ":summary": processing_summary,
+            },
         )
-        return {"status": "completed"}
+        return {"status": "completed", "summary": processing_summary}
 
     except NoCredentialsError:
         return {"error": "AWS credentials not found"}
