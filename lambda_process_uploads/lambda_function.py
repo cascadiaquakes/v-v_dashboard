@@ -324,7 +324,7 @@ def process_zip(
                     )
                     summary["successfulFiles"].append(file_name)
                     os.remove(output_path)
-                except Exception as e:  # noqa: BLE001 - record before preserving existing failure behavior
+                except Exception as e:
                     error_message = str(e)
                     print(f"Error processing file {file_name}: {error_message}")
                     summary["filesWithErrors"].append({
