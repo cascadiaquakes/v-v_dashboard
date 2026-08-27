@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-02-27T00:00:00Z",
+  "updatedAt": "2026-08-26T00:00:00Z",
   "groups": {
     "public": [
       {
@@ -26,6 +26,11 @@
       {
         "id": "TSHA-BP1",
         "prefix": "public_ds/TSHA-BP1/",
+        "status": "development"
+      },
+      {
+        "id": "bp9-qd-PW",
+        "prefix": "public_ds/bp9-qd-PW/",
         "status": "development"
       }
     ],
@@ -53,6 +58,11 @@
       {
         "id": "THSA-BP1",
         "prefix": "upload/THSA-BP1/",
+        "status": "development"
+      },
+      {
+        "id": "bp9-qd-PW",
+        "prefix": "upload/bp9-qd-PW/",
         "status": "development"
       }
     ]
