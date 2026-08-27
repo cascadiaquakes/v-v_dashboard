@@ -314,10 +314,24 @@ def get_benchmark_params(search):
         raise ValueError(f"Error loading benchmark params: {e}") from e
 
 @memoize(timeout=3600)
-def get_benchmarks_list():
-    bucket_name = "benchmark-vv-data"
-    key = "public_ds/benchmarks_list.json"
-
+def _get_benchmarks_list_cached(bucket_name, key, object_revision):
+    """Fetch and parse the benchmark list cached for one S3 revision."""
     resp = s3_client.get_object(Bucket=bucket_name, Key=key)
     content = resp["Body"].read().decode("utf-8")
     return json.loads(content)
+
+
+def get_benchmarks_list():
+    """Get the benchmark list, invalidating the cache after an S3 update."""
+    bucket_name = "benchmark-vv-data"
+    key = "public_ds/benchmarks_list.json"
+
+    metadata = s3_client.head_object(Bucket=bucket_name, Key=key)
+    last_modified = metadata["LastModified"].isoformat()
+    object_revision = (
+        metadata.get("VersionId"),
+        metadata.get("ETag"),
+        last_modified,
+        metadata.get("ContentLength"),
+    )
+    return _get_benchmarks_list_cached(bucket_name, key, object_revision)
