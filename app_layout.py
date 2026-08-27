@@ -195,8 +195,18 @@ def get_main_page():
                                                                 [
                                                                     dbc.ModalHeader(
                                                                         dbc.ModalTitle("File Metadata")),
-                                                                    dbc.ModalBody(html.Pre(id='popup-content', style={"maxHeight": "70vh", "overflowY": "auto"})),
-                                                                    # JSON content display
+                                                                    dbc.ModalBody(
+                                                                        dcc.Loading(
+                                                                            html.Pre(
+                                                                                id='popup-content',
+                                                                                style={
+                                                                                    "maxHeight": "70vh",
+                                                                                    "overflowY": "auto",
+                                                                                },
+                                                                            ),
+                                                                            type="circle",
+                                                                        )
+                                                                    ),
                                                                     dbc.ModalFooter(
                                                                         dbc.Button("Close", id="close-popup",
                                                                                    className="ms-auto",
@@ -389,5 +399,6 @@ def get_main_page():
             # store user's dataset
             dcc.Store(id='benchmark-params'),
             dcc.Store(id="benchmarks-list-store"),
+            dcc.Store(id="metadata-request"),
             dcc.Store(id="camera-sync-state")
         ])

@@ -236,7 +236,7 @@ def get_callbacks(app):
 
         return main_graph, main_graph_style, sub_graph, sub_graph_style
 
-    ### Callback 1: Generate Links Based on Dataset Choice and Benchmark ID
+    # Generate metadata links for the selected datasets.
     @app.callback(
         dash.dependencies.Output('links-container', 'children'),
         dash.dependencies.Input('show-graphs', 'n_clicks'),
@@ -249,7 +249,11 @@ def get_callbacks(app):
             html.Div(
                 children=[
                     html.Span("Metadata: "),
-                    html.A(file, href='#', id={'type': 'file-link', 'index': file}),
+                    html.Button(
+                        file,
+                        id={'type': 'file-link', 'index': file},
+                        className="btn btn-link p-0 border-0 align-baseline",
+                    ),
                 ],
                 style={'marginBottom': '10px'}
             )
@@ -257,31 +261,63 @@ def get_callbacks(app):
         ]
         return links
 
-    ### Callback 2: Handle Modal Open/Close Logic
-    @app.callback(
-        dash.dependencies.Output('popup-content', 'children'),
+    # Open the modal immediately in the browser and queue a metadata request.
+    app.clientside_callback(
+        """
+        function(fileClicks, _closeClicks) {
+            const callbackContext = dash_clientside.callback_context;
+            const triggered = callbackContext.triggered;
+            if (!triggered || triggered.length === 0) {
+                return [dash_clientside.no_update, dash_clientside.no_update];
+            }
+
+            const propId = triggered[0].prop_id || "";
+
+            if (propId.includes('"type":"file-link"')) {
+                const values = Array.isArray(fileClicks) ? fileClicks : [fileClicks];
+                const wasClicked = values.some(value => Number(value || 0) > 0);
+                if (!wasClicked) {
+                    return [dash_clientside.no_update, dash_clientside.no_update];
+                }
+
+                let triggeredId;
+                try {
+                    triggeredId = JSON.parse(propId.slice(0, propId.lastIndexOf(".")));
+                } catch (error) {
+                    return [dash_clientside.no_update, dash_clientside.no_update];
+                }
+
+                return [
+                    true,
+                    {filename: triggeredId.index, request_id: Date.now()},
+                ];
+            }
+
+            if (propId === "close-popup.n_clicks") {
+                return [false, dash_clientside.no_update];
+            }
+
+            return [dash_clientside.no_update, dash_clientside.no_update];
+        }
+        """,
         dash.dependencies.Output('popup-modal', 'is_open'),
+        dash.dependencies.Output('metadata-request', 'data'),
         dash.dependencies.Input({'type': 'file-link', 'index': dash.dependencies.ALL}, 'n_clicks'),
         dash.dependencies.Input('close-popup', 'n_clicks'),
-        dash.dependencies.State('popup-modal', 'is_open'),
+        prevent_initial_call=True
+    )
+
+    # Fetch metadata independently so network latency cannot delay the modal.
+    @app.callback(
+        dash.dependencies.Output('popup-content', 'children'),
+        dash.dependencies.Input('metadata-request', 'data'),
         dash.dependencies.State('url', 'search'),
         prevent_initial_call=True
     )
-    def handle_modal(file_clicks, close_click, is_open, benchmark_id):
-        triggered = ctx.triggered
-        # Debug: Check what triggered the callback
-        if not triggered:
-            return "", False  # No valid trigger, return modal closed.
-
-        # Check if a file link was clicked
-        if "file-link" in triggered[0]['prop_id'] and triggered[0]['value']:
-            file_name = eval(triggered[0]['prop_id'].rsplit('.', 1)[0])['index']
-            # Fetch and format metadata
-            metadata = get_metadata(benchmark_id, file_name)
-            return metadata, True  # Open modal with metadata
-
-        # Close modal if the close button was clicked
-        return "", False
+    def load_metadata(request, benchmark_id):
+        if not request or not request.get("filename"):
+            return no_update
+        return get_metadata(benchmark_id, request["filename"])
 
     @app.callback(dash.dependencies.Output('upload-filename', 'children'),
                   dash.dependencies.Input('upload-data', 'contents'),
@@ -315,7 +351,14 @@ def get_callbacks(app):
         """
         datasets = fetch_group_names_for_benchmark(search)
         links = [
-            {'label': html.Span([file, html.A(": info", href='#', id={'type': 'file-link', 'index': file})]),
+            {'label': html.Span([
+                file,
+                html.Button(
+                    ": info",
+                    id={'type': 'file-link', 'index': file},
+                    className="btn btn-link p-0 border-0 align-baseline",
+                ),
+            ]),
              'value': file}
             for file in datasets or []  # Handle case if dataset_list is None
         ]
