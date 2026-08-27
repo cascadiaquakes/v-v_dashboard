@@ -52,13 +52,38 @@ def get_main_page():
                                 'whiteSpace': 'nowrap'
                             }
                         ),
-                        dbc.Button(
-                            "Uploader",
-                            href="https://det-uploader.cascadiaquakes.org/",
-                            target="_blank",
-                            color="light",
-                            size="sm",
-                            style={'whiteSpace': 'nowrap'}
+                        html.Div(
+                            [
+                                dbc.Button(
+                                    html.Img(
+                                        src="/assets/home.svg",
+                                        alt="",
+                                        style={
+                                            "display": "block",
+                                            "width": "1rem",
+                                            "height": "1rem",
+                                        },
+                                    ),
+                                    id="home-button",
+                                    color="light",
+                                    size="sm",
+                                    title="Choose a benchmark",
+                                    style={"padding": "0.35rem 0.5rem"},
+                                ),
+                                dbc.Button(
+                                    "Uploader",
+                                    href="https://det-uploader.cascadiaquakes.org/",
+                                    target="_blank",
+                                    color="light",
+                                    size="sm",
+                                    style={'whiteSpace': 'nowrap'}
+                                ),
+                            ],
+                            style={
+                                'display': 'flex',
+                                'alignItems': 'center',
+                                'gap': '0.5rem',
+                            },
                         ),
                     ],
                     style={

@@ -223,7 +223,14 @@ def get_callbacks(app):
         else:
             x_axis = next((item for item in plots_list if item['name'] == x_axis_sel), plots_list[0])
 
-            main_graph, main_graph_style = main_time_plot_dynamic(ds_update, plots_list, x_axis, time_axis_unit)
+            trace_mode = "markers" if plot_type == "scatter" else "lines"
+            main_graph, main_graph_style = main_time_plot_dynamic(
+                ds_update,
+                plots_list,
+                x_axis,
+                time_axis_unit,
+                mode=trace_mode,
+            )
             sub_graph = go.Figure()
             sub_graph_style = {'display': 'none'}
 
@@ -320,11 +327,12 @@ def get_callbacks(app):
         dash.dependencies.Output("welcome-modal", "is_open"),
         dash.dependencies.Output("benchmarks-list-store", "data"),
         dash.dependencies.Input("url", "search"),
+        dash.dependencies.Input("home-button", "n_clicks"),
         dash.dependencies.Input("welcome-close", "n_clicks"),
         dash.dependencies.State("welcome-modal", "is_open"),
         prevent_initial_call=False,
     )
-    def load_benchmark_params(search, close_clicks, modal_is_open):
+    def load_benchmark_params(search, home_clicks, close_clicks, modal_is_open):
         # Which input triggered?
         trigger = dash.callback_context.triggered[0]["prop_id"].split(".")[
             0] if dash.callback_context.triggered else None
@@ -332,6 +340,16 @@ def get_callbacks(app):
         # 1) Close button wins: just close the modal, don't touch anything else
         if trigger == "welcome-close":
             return no_update, no_update, False, no_update
+
+        # Home always returns to the base URL and reopens the benchmark picker,
+        # including when the browser is already at the base URL.
+        if trigger == "home-button":
+            try:
+                blist = get_benchmarks_list()
+            except Exception as e:  # noqa: BLE001 - keep the modal usable if loading fails
+                print(f"Error loading benchmarks list: {e}")
+                blist = None
+            return None, "/", True, blist
 
         # 2) Otherwise, we're here because url.search fired (initial load or navigation)
         try:
@@ -455,12 +473,13 @@ def get_callbacks(app):
 
                 # build meta from var_list so we can label slider units nicely
                 xaxis_options = list_vars.copy()
-                if 't' not in xaxis_options:
-                    xaxis_options.append('t')
+                default_xaxis = file.get("x_axis", "t")
+                if default_xaxis not in xaxis_options:
+                    default_xaxis = xaxis_options[0] if xaxis_options else ""
                 return (
                     file['list_of_receivers'], file['list_of_receivers'][0],
                     list_vars, list_vars[-1],
-                    xaxis_options, 't',
+                    xaxis_options, default_xaxis,
                     cross_axis_opts, default_cross_axis,
                     [],  # reset switch checkbox
                 )
