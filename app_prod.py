@@ -12,7 +12,7 @@ server = app.server
 
 # Configure Flask-Caching with SimpleCache
 cache = Cache(server, config={
-    'CACHE_TYPE': 'simple',  # Use in-memory caching
+    'CACHE_TYPE': 'SimpleCache',  # Use in-memory caching
     'CACHE_DEFAULT_TIMEOUT': 3600,  # Cache timeout in seconds (1 hour)
     'CACHE_THRESHOLD': 50
 })
