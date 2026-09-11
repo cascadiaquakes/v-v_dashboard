@@ -1,0 +1,61 @@
+name: destroy-prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type DESTROY DashboardStack to confirm"
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: destroy-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-west-2
+  STACK_NAME: DashboardStack
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validate confirmation
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIRMATION" != "DESTROY DashboardStack" ]]; then
+            echo "Confirmation did not exactly match: DESTROY DashboardStack" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CDK deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r cdk/requirements.txt
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::818214664804:role/GitHubActionsDeployRole
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-destroy-prod
+
+      - name: Destroy CDK stack (prod)
+        run: npx cdk@2 destroy "$STACK_NAME" --force
