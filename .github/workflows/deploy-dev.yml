@@ -1,37 +1,35 @@
-﻿name: deploy-dev
+name: deploy-dev
 
 on:
-  # Allows manual execution from the Actions UI with optional inputs.
+  # Auto-deploys the app-only dev stack (DashboardEcsDev) on push to main.
+  # The dev stack reuses the production VPC / cluster / subnets to keep it
+  # cheap and focused on container testing.
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Image tag to build/push (optional; defaults to commit SHA)"
+        description: "App image tag (optional; defaults to the selected commit SHA)"
         required: false
-      stack:
-        description: "Stack to deploy (DashboardStack or DashboardStackTest)"
-        required: false
-        default: DashboardStack
-  push:
-    branches: [ci/test]
 
 permissions:
   contents: read
 
-# Ensures only one deployment runs at a time for this workflow.
 concurrency:
   group: deploy-dev
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   DEPLOY_REGION: us-west-2
-  STACK_NAME: DashboardStack
+  PROD_STACK_NAME: DashboardStack
+  DEV_STACK_NAME: DashboardEcsDev
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write  # Required for OIDC authentication to AWS.
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -44,93 +42,120 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install CDK deps
+      - name: Install CDK dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r cdk/requirements.txt
 
-      - name: Debug region
-        run: |
-          echo "GITHUB_REF=$GITHUB_REF"
-          echo "DEPLOY_REGION=$DEPLOY_REGION"
-          aws --version
-
-      # Authenticates to AWS via OIDC, exchanging a GitHub token for temporary credentials.
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::818214664804:role/GitHubActionsDeployRole
           aws-region: ${{ env.DEPLOY_REGION }}
-          role-session-name: gha-deploy
+          role-session-name: gha-deploy-ecs-test
 
-      - name: Get AWS account id
+      - name: Get AWS account ID
         id: aws
         run: echo "id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
 
-      # Idempotent step to create ECR repositories if they do not already exist.
-      - name: Ensure ECR repos exist (idempotent)
+      - name: Discover production ECS infrastructure
+        id: production
+        shell: bash
         run: |
-          aws ecr describe-repositories --region "$DEPLOY_REGION" --repository-names v-v_dashboard >/dev/null 2>&1 \
-            || aws ecr create-repository --region "$DEPLOY_REGION" --repository-name v-v_dashboard
-          aws ecr describe-repositories --region "$DEPLOY_REGION" --repository-names vv-lambda-upload >/dev/null 2>&1 \
-            || aws ecr create-repository --region "$DEPLOY_REGION" --repository-name vv-lambda-upload
+          set -euo pipefail
+          VPC_ID=$(aws cloudformation list-stack-resources \
+            --stack-name "$PROD_STACK_NAME" \
+            --region "$DEPLOY_REGION" \
+            --query "StackResourceSummaries[?ResourceType=='AWS::EC2::VPC'].PhysicalResourceId | [0]" \
+            --output text)
+          CLUSTER_NAME=$(aws cloudformation list-stack-resources \
+            --stack-name "$PROD_STACK_NAME" \
+            --region "$DEPLOY_REGION" \
+            --query "StackResourceSummaries[?ResourceType=='AWS::ECS::Cluster'].PhysicalResourceId | [0]" \
+            --output text)
+          read -r -a PUBLIC_SUBNET_IDS <<< "$(aws cloudformation list-stack-resources \
+            --stack-name "$PROD_STACK_NAME" \
+            --region "$DEPLOY_REGION" \
+            --query "StackResourceSummaries[?ResourceType=='AWS::EC2::Subnet' && contains(LogicalResourceId, 'PublicSubnet')].PhysicalResourceId" \
+            --output text)"
 
-      - name: ECR login
+          if [[ -z "$VPC_ID" || "$VPC_ID" == "None" ]]; then
+            echo "Could not find the production VPC in $PROD_STACK_NAME" >&2
+            exit 1
+          fi
+          if [[ -z "$CLUSTER_NAME" || "$CLUSTER_NAME" == "None" ]]; then
+            echo "Could not find the production ECS cluster in $PROD_STACK_NAME" >&2
+            exit 1
+          fi
+          if (( ${#PUBLIC_SUBNET_IDS[@]} < 2 )); then
+            echo "Could not find the production public subnets in $PROD_STACK_NAME" >&2
+            exit 1
+          fi
+
+          AVAILABILITY_ZONES=()
+          for SUBNET_ID in "${PUBLIC_SUBNET_IDS[@]}"; do
+            AVAILABILITY_ZONES+=("$(aws ec2 describe-subnets \
+              --subnet-ids "$SUBNET_ID" \
+              --region "$DEPLOY_REGION" \
+              --query "Subnets[0].AvailabilityZone" \
+              --output text)")
+          done
+
+          PUBLIC_SUBNET_CSV=$(IFS=,; echo "${PUBLIC_SUBNET_IDS[*]}")
+          AVAILABILITY_ZONE_CSV=$(IFS=,; echo "${AVAILABILITY_ZONES[*]}")
+
+          echo "vpc_id=$VPC_ID" >> "$GITHUB_OUTPUT"
+          echo "cluster_name=$CLUSTER_NAME" >> "$GITHUB_OUTPUT"
+          echo "public_subnet_ids=$PUBLIC_SUBNET_CSV" >> "$GITHUB_OUTPUT"
+          echo "availability_zones=$AVAILABILITY_ZONE_CSV" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure app ECR repository exists
+        run: |
+          aws ecr describe-repositories \
+            --region "$DEPLOY_REGION" \
+            --repository-names v-v_dashboard >/dev/null 2>&1 \
+            || aws ecr create-repository \
+              --region "$DEPLOY_REGION" \
+              --repository-name v-v_dashboard
+
+      - name: Log in to ECR
         run: |
           aws ecr get-login-password --region "$DEPLOY_REGION" \
-          | docker login --username AWS --password-stdin ${{ steps.aws.outputs.id }}.dkr.ecr.${{ env.DEPLOY_REGION }}.amazonaws.com
+          | docker login \
+              --username AWS \
+              --password-stdin \
+              "${{ steps.aws.outputs.id }}.dkr.ecr.${DEPLOY_REGION}.amazonaws.com"
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build & push app image
+      - name: Build and push test app image
         env:
           TAG: ${{ inputs.tag || github.sha }}
-          REG: ${{ steps.aws.outputs.id }}.dkr.ecr.${{ env.DEPLOY_REGION }}.amazonaws.com
+          REGISTRY: ${{ steps.aws.outputs.id }}.dkr.ecr.${{ env.DEPLOY_REGION }}.amazonaws.com
         run: |
-          docker build -t v-v_dashboard:"$TAG" .
-          docker tag  v-v_dashboard:"$TAG" "$REG"/v-v_dashboard:"$TAG"
-          docker push "$REG"/v-v_dashboard:"$TAG"
+          docker build -t "v-v_dashboard:$TAG" .
+          docker tag "v-v_dashboard:$TAG" "$REGISTRY/v-v_dashboard:$TAG"
+          docker push "$REGISTRY/v-v_dashboard:$TAG"
 
-      - name: Build & push lambda image (Docker v2 manifest)
-        env:
-          TAG: ${{ inputs.tag || github.sha }}
-          REG: ${{ steps.aws.outputs.id }}.dkr.ecr.${{ env.DEPLOY_REGION }}.amazonaws.com
-          DOCKER_BUILDKIT: 0 # Disable BuildKit to produce a Docker v2 manifest required by Lambda.
+      - name: Deploy app-only ECS test stack
         run: |
-          docker build -t vv-lambda-upload:"$TAG" -f lambda_process_uploads/Dockerfile lambda_process_uploads
-          docker tag  vv-lambda-upload:"$TAG" "$REG"/vv-lambda-upload:"$TAG"
-          docker push "$REG"/vv-lambda-upload:"$TAG"
-
-      # Ensures the CDK bootstrap stack exists; fails gracefully if already bootstrapped.
-      - name: CDK bootstrap (idempotent)
-        run: |
-          npx cdk@2 bootstrap aws://$(aws sts get-caller-identity --query Account --output text)/${DEPLOY_REGION} || true
-
-      - name: CDK deploy (dev)
-        run: |
-          # Use the 'stack' input if provided, otherwise fall back to the default STACK_NAME.
-          STACK="${{ inputs.stack || env.STACK_NAME }}"
-          echo "Deploying stack: $STACK"
-          npx cdk@2 deploy "$STACK" \
-            -c appTag=${{ inputs.tag || github.sha }} \
-            -c lambdaTag=${{ inputs.tag || github.sha }} \
+          npx cdk@2 deploy "$DEV_STACK_NAME" \
+            -c appTag="${{ inputs.tag || github.sha }}" \
+            -c productionVpcId="${{ steps.production.outputs.vpc_id }}" \
+            -c productionClusterName="${{ steps.production.outputs.cluster_name }}" \
+            -c productionPublicSubnetIds="${{ steps.production.outputs.public_subnet_ids }}" \
+            -c productionAvailabilityZones="${{ steps.production.outputs.availability_zones }}" \
             --require-approval never
 
-      # Verifies that the primary service endpoints are responsive after deployment.
       - name: Smoke test
-        env:
-          STACK: ${{ inputs.stack || env.STACK_NAME }}
-          REGION: ${{ env.DEPLOY_REGION }}
+        shell: bash
         run: |
           set -euo pipefail
-          ALB_URL=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
-            --query "Stacks[0].Outputs[?OutputKey=='ServiceURL'].OutputValue" --output text)
-          API_HEALTH_URL=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
-            --query "Stacks[0].Outputs[?OutputKey=='StatusAPIHealthURL'].OutputValue" --output text)
-          echo "ALB:  $ALB_URL"
-          echo "API:  $API_HEALTH_URL"
-          echo "Checking ALB..."
-          curl -fsS --max-time 20 "$ALB_URL" >/dev/null
-          echo "Checking API health..."
-          curl -fsS --max-time 20 "$API_HEALTH_URL" >/dev/null
-          echo "Smoke test passed."
+          ALB_DNS=$(aws cloudformation describe-stacks \
+            --stack-name "$DEV_STACK_NAME" \
+            --region "$DEPLOY_REGION" \
+            --query "Stacks[0].Outputs[?OutputKey=='ServiceURL'].OutputValue" \
+            --output text)
+          echo "Development dashboard: http://$ALB_DNS"
+          curl --fail --silent --show-error --max-time 30 "http://$ALB_DNS/" >/dev/null
+          echo "Development dashboard smoke test passed."
