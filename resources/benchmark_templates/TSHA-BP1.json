@@ -30,7 +30,7 @@
         }
       ],
       "prefix": "BL13M_gauge",
-      "file_type": "csv"
+      "file_type": "txt"
     },
     {
       "name": "BL13M instant",
@@ -61,7 +61,7 @@
         }
       ],
       "prefix": "BL13M_instant_gauge",
-      "file_type": "csv"
+      "file_type": "txt"
     }
   ]
 }
