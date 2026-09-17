@@ -171,10 +171,85 @@ def get_main_page():
                                                                    style={'margin': '10px'}
                                                                    ),
                                                         dbc.Alert(
-                                                            "Warning: Single file upload is not supported for surface files.",
+                                                            [
+                                                                "Uploads are for temporary time-series comparisons only. ",
+                                                                dbc.Button(
+                                                                    "More info",
+                                                                    id="upload-info-open",
+                                                                    color="link",
+                                                                    size="sm",
+                                                                    className="p-0 align-baseline",
+                                                                    n_clicks=0,
+                                                                ),
+                                                            ],
                                                             color="warning",
-                                                            dismissable=True,
                                                             style={'margin': '10px'}
+                                                        ),
+                                                        dbc.Modal(
+                                                            [
+                                                                dbc.ModalHeader(
+                                                                    dbc.ModalTitle("About temporary file uploads")
+                                                                ),
+                                                                dbc.ModalBody([
+                                                                    html.P(
+                                                                        "Use this feature to quickly plot one local "
+                                                                        "time-series file alongside selected published "
+                                                                        "datasets."
+                                                                    ),
+                                                                    html.Ul([
+                                                                        html.Li(
+                                                                            "The file is temporary and is not saved as "
+                                                                            "a persistent platform dataset. It remains "
+                                                                            "available only in the current page session."
+                                                                        ),
+                                                                        html.Li(
+                                                                            "Uploading a file does not select or match "
+                                                                            "the benchmark, file type, receiver, or "
+                                                                            "datasets. Configure those controls before "
+                                                                            "showing the graphs."
+                                                                        ),
+                                                                        html.Li(
+                                                                            "Only one time-series text file is supported. "
+                                                                            "Surface files are not supported."
+                                                                        ),
+                                                                        html.Li(
+                                                                            "Validation is limited to checking that column "
+                                                                            "names and order exactly match the selected file "
+                                                                            "type. Units, values, correctness, and scientific "
+                                                                            "validity are not verified."
+                                                                        ),
+                                                                        html.Li(
+                                                                            "An invalid or incompatible file may not appear "
+                                                                            "on the graph."
+                                                                        ),
+                                                                    ]),
+                                                                    dbc.Alert([
+                                                                        "For persistent dataset submission and processing, ",
+                                                                        html.A(
+                                                                            "use the production uploader",
+                                                                            href=(
+                                                                                "https://det-uploader."
+                                                                                "cascadiaquakes.org/"
+                                                                            ),
+                                                                            target="_blank",
+                                                                            rel="noopener noreferrer",
+                                                                            className="alert-link",
+                                                                        ),
+                                                                        ".",
+                                                                    ], color="info"),
+                                                                ]),
+                                                                dbc.ModalFooter(
+                                                                    dbc.Button(
+                                                                        "Close",
+                                                                        id="upload-info-close",
+                                                                        color="secondary",
+                                                                        n_clicks=0,
+                                                                    )
+                                                                ),
+                                                            ],
+                                                            id="upload-info-modal",
+                                                            is_open=False,
+                                                            centered=True,
                                                         ),
                                                         html.Div([html.H5("Uploaded file:", style={'color': '#000000'}),
                                                                   html.P(id="upload-filename")])

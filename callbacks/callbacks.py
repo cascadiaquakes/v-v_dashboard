@@ -319,6 +319,19 @@ def get_callbacks(app):
             return no_update
         return get_metadata(benchmark_id, request["filename"])
 
+    @app.callback(
+        dash.dependencies.Output("upload-info-modal", "is_open"),
+        dash.dependencies.Input("upload-info-open", "n_clicks"),
+        dash.dependencies.Input("upload-info-close", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def toggle_upload_info_modal(_open_clicks, _close_clicks):
+        if ctx.triggered_id == "upload-info-open":
+            return True
+        if ctx.triggered_id == "upload-info-close":
+            return False
+        return no_update
+
     @app.callback(dash.dependencies.Output('upload-filename', 'children'),
                   dash.dependencies.Input('upload-data', 'contents'),
                   dash.dependencies.State('upload-data', 'filename'))
