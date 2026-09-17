@@ -239,6 +239,13 @@ def generate_color_mapping(datasets):
 
 
 @memoize(timeout=3600)
+def _get_metadata_cached(bucket_name, s3_key, object_revision):
+    """Fetch metadata cached for one specific S3 object revision."""
+    response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+    metadata = response['Body'].read().decode('utf-8')
+    return json.loads(metadata)
+
+
 def get_metadata(benchmark_id, dataset_name):
     """
     Get metadata for a dataset.
@@ -253,9 +260,15 @@ def get_metadata(benchmark_id, dataset_name):
     try:
         bucket_name = 'benchmark-vv-data'
         s3_key = f"public_ds/{parse_benchmark_id(benchmark_id)}/{dataset_name}/metadata.json"
-        response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
-        metadata = response['Body'].read().decode('utf-8')
-        return render_json(json.loads(metadata))
+        object_metadata = s3_client.head_object(Bucket=bucket_name, Key=s3_key)
+        object_revision = (
+            object_metadata.get('VersionId'),
+            object_metadata.get('ETag'),
+            object_metadata['LastModified'].isoformat(),
+            object_metadata.get('ContentLength'),
+        )
+        metadata = _get_metadata_cached(bucket_name, s3_key, object_revision)
+        return render_json(metadata)
     except Exception as e:  # noqa: BLE001 - metadata is optional in the UI
         print(f"Error fetching metadata: {e}")
         return None
