@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-26T00:00:00Z",
+  "updatedAt": "2026-09-09T00:00:00Z",
   "groups": {
     "public": [
       {
@@ -31,6 +31,11 @@
       {
         "id": "bp9-qd-PW",
         "prefix": "public_ds/bp9-qd-PW/",
+        "status": "development"
+      },
+      {
+        "id": "bp9-qd-2D-PW",
+        "prefix": "public_ds/bp9-qd-2D-PW/",
         "status": "development"
       }
     ],
@@ -63,6 +68,11 @@
       {
         "id": "bp9-qd-PW",
         "prefix": "upload/bp9-qd-PW/",
+        "status": "development"
+      },
+      {
+        "id": "bp9-qd-2D-PW",
+        "prefix": "upload/bp9-qd-2D-PW/",
         "status": "development"
       }
     ]
