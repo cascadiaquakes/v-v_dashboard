@@ -157,5 +157,16 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='ServiceURL'].OutputValue" \
             --output text)
           echo "Development dashboard: http://$ALB_DNS"
-          curl --fail --silent --show-error --max-time 30 "http://$ALB_DNS/" >/dev/null
-          echo "Development dashboard smoke test passed."
+          # ALB target registration lags CDK deploy by ~30-90s; retry until 2xx.
+          attempt=1
+          max=12
+          until curl --fail --silent --show-error --max-time 20 "http://$ALB_DNS/" >/dev/null; do
+            if (( attempt >= max )); then
+              echo "Smoke test failed after $max attempts" >&2
+              exit 1
+            fi
+            echo "Not ready (attempt $attempt/$max), sleeping 10s"
+            attempt=$((attempt + 1))
+            sleep 10
+          done
+          echo "Development dashboard smoke test passed on attempt $attempt."
