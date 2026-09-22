@@ -125,8 +125,21 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='StatusAPIHealthURL'].OutputValue" --output text)
           echo "ALB:  $ALB_URL"
           echo "API:  $API_HEALTH_URL"
-          echo "Checking ALB..."
-          curl -fsS --max-time 20 "$ALB_URL" >/dev/null
-          echo "Checking API health..."
-          curl -fsS --max-time 20 "$API_HEALTH_URL" >/dev/null
+          # ALB target registration lags CDK deploy by ~30-90s; retry until 2xx.
+          check() {
+            local url="$1" label="$2"
+            local attempt=1 max=12
+            until curl -fsS --max-time 20 "$url" >/dev/null; do
+              if (( attempt >= max )); then
+                echo "$label failed after $max attempts" >&2
+                return 1
+              fi
+              echo "$label not ready (attempt $attempt/$max), sleeping 10s"
+              attempt=$((attempt + 1))
+              sleep 10
+            done
+            echo "$label OK on attempt $attempt"
+          }
+          check "$ALB_URL" "ALB"
+          check "$API_HEALTH_URL" "API health"
           echo "Smoke test passed."
