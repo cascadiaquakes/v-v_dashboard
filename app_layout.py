@@ -55,20 +55,16 @@ def get_main_page():
                         html.Div(
                             [
                                 dbc.Button(
-                                    html.Img(
-                                        src="/assets/home.svg",
-                                        alt="",
-                                        style={
-                                            "display": "block",
-                                            "width": "1rem",
-                                            "height": "1rem",
-                                        },
-                                    ),
+                                    [
+                                        "Benchmarks & Info",
+                                    ],
                                     id="home-button",
                                     color="light",
                                     size="sm",
-                                    title="Choose a benchmark",
-                                    style={"padding": "0.35rem 0.5rem"},
+                                    title="Choose a benchmark or view project information",
+                                    style={
+                                        "whiteSpace": "nowrap",
+                                    },
                                 ),
                                 dbc.Button(
                                     "Uploader",
@@ -464,7 +460,31 @@ def get_main_page():
                                 target="_blank",
                                 rel="noopener noreferrer",
                             )
-                        ])
+                        ]),
+                        html.Hr(),
+                        html.H5("Project Contacts"),
+                        html.Div([
+                            html.P([
+                                html.Strong("Amanda M. Thomas"), html.Br(),
+                                "Department of Earth and Planetary Sciences", html.Br(),
+                                "University of California, Davis", html.Br(),
+                                html.A("amthom@ucdavis.edu", href="mailto:amthom@ucdavis.edu"),
+                            ]),
+                            html.P([
+                                html.Strong("William Marfo"), html.Br(),
+                                "Cascadia Region Earthquake Science Center", html.Br(),
+                                "Department of Earth and Planetary Sciences", html.Br(),
+                                "University of California, Davis", html.Br(),
+                                html.A("wmarfo@ucdavis.edu", href="mailto:wmarfo@ucdavis.edu"),
+                            ]),
+                            html.P([
+                                html.Strong("Loïc Bachelot"), html.Br(),
+                                "Cascadia Region Earthquake Science Center", html.Br(),
+                                "Department of Earth Sciences", html.Br(),
+                                "University of Oregon", html.Br(),
+                                html.A("lbachelo@uoregon.edu", href="mailto:lbachelo@uoregon.edu"),
+                            ]),
+                        ]),
                     ]),
                     dbc.ModalFooter(
                         dbc.Button("Close", id="welcome-close", color="secondary")
