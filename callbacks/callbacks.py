@@ -451,6 +451,17 @@ def get_callbacks(app):
                         className="text-muted",
                     )
                 )
+            description_url = item.get("description_url")
+            if description_url:
+                children.extend([
+                    html.Span(" — "),
+                    html.A(
+                        "Link to benchmark description",
+                        href=description_url,
+                        target="_blank",
+                        rel="noopener noreferrer",
+                    ),
+                ])
             return dbc.ListGroupItem(children)
 
         public_list = dbc.ListGroup([build_item(item) for item in public_benchmarks]) if public_benchmarks else None
@@ -458,13 +469,17 @@ def get_callbacks(app):
 
         list_children = []
         if public_list:
-            list_children.append(public_list)
+            list_children.append(dbc.Col([
+                html.H6("Public benchmarks", className="text-muted"),
+                public_list,
+            ], xs=12, lg=6))
         if other_benchmarks:
-            if public_list:
-                list_children.append(html.Hr())
-            list_children.append(other_list)
+            list_children.append(dbc.Col([
+                html.H6("In development", className="text-muted"),
+                other_list,
+            ], xs=12, lg=6))
 
-        return html.Div(list_children)
+        return dbc.Row(list_children, className="g-4")
 
 
     @app.callback(
