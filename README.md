@@ -10,6 +10,12 @@ Dash app + AWS CDK stack for the DET “viewer”.
 
 ---
 
+## Platform reference
+
+The platform is described in Bachelot et al., [*CRESCENT Earthquake Dynamic Rupture, Earthquake Cycle, and Tsunami Code Verification Platform*](https://seismica.library.mcgill.ca/article/view/2716), *Seismica*. DOI: [10.26443/seismica.v5i2.2716](https://doi.org/10.26443/seismica.v5i2.2716).
+
+---
+
 ## CI/CD Pipeline (Recommended)
 
 This repo ships with **GitHub Actions**. Deploys are pinned to **us-west-2** and the workflow updates an existing stack.
