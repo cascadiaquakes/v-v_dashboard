@@ -525,5 +525,6 @@ def get_main_page():
             dcc.Store(id='benchmark-params'),
             dcc.Store(id="benchmarks-list-store"),
             dcc.Store(id="metadata-request"),
+            dcc.Store(id="metadata-handled-clicks", data={}),
             dcc.Store(id="camera-sync-state")
         ])
