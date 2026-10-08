@@ -397,15 +397,14 @@ def get_callbacks(app):
         if trigger == "welcome-close":
             return no_update, no_update, False, no_update
 
-        # Home always returns to the base URL and reopens the benchmark picker,
-        # including when the browser is already at the base URL.
+        # Open the benchmark picker while preserving the URL and current benchmark.
         if trigger == "home-button":
             try:
                 blist = get_benchmarks_list()
             except Exception as e:  # noqa: BLE001 - keep the modal usable if loading fails
                 print(f"Error loading benchmarks list: {e}")
                 blist = None
-            return None, "/", True, blist
+            return no_update, no_update, True, blist
 
         # 2) Otherwise, we're here because url.search fired (initial load or navigation)
         try:
