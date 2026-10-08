@@ -445,46 +445,76 @@ def get_main_page():
                 id="welcome-modal",
                 is_open=False,
                 centered=True,
-                size="lg",
+                size="xl",
+                scrollable=True,
                 children=[
-                    dbc.ModalHeader(dbc.ModalTitle("Welcome to the DET platform")),
+                    dbc.ModalHeader(dbc.ModalTitle("Benchmarks & Info")),
                     dbc.ModalBody([
-                        html.P("Pick a benchmark to get started:"),
+                        html.H5("Choose a benchmark"),
+                        html.P("Select a benchmark to get started.", className="text-muted small"),
                         html.Div(id="benchmarks-list-ui"),
-                        html.Hr(),
+                        html.Hr(className="my-4"),
+                        dbc.Row([
+                        dbc.Col([
+                        html.H5("Project & Support"),
                         html.P([
-                            "Main website: ",
                             html.A(
-                                "https://cascadiaquakes.org/det/",
+                                [
+                                    html.Img(src="assets/favicon.ico", alt="",
+                                             style={"height": "24px", "width": "24px", "flexShrink": 0}),
+                                    html.Span("DET working group"),
+                                ],
                                 href="https://cascadiaquakes.org/det/",
                                 target="_blank",
                                 rel="noopener noreferrer",
-                            )
-                        ]),
-                        html.Hr(),
+                                style={"display": "inline-flex", "alignItems": "center", "gap": "8px"},
+                            ),
+                            html.Br(),
+                            html.A(
+                                [
+                                    html.Img(src="assets/github.svg", alt="",
+                                             style={"height": "24px", "width": "auto", "flexShrink": 0}),
+                                    html.Span("Report a problem / View issues"),
+                                ],
+                                href="https://github.com/cascadiaquakes/v-v_dashboard/issues",
+                                target="_blank",
+                                rel="noopener noreferrer",
+                                style={"display": "inline-flex", "alignItems": "center", "gap": "8px"},
+                            ),
+                        ], className="mb-3"),
+                        ], xs=12, lg=3),
+                        dbc.Col([
                         html.H5("Project Contacts"),
-                        html.Div([
-                            html.P([
+                        dbc.Row([
+                            dbc.Col(html.P([
                                 html.Strong("Amanda M. Thomas"), html.Br(),
+                                html.Small([
                                 "Department of Earth and Planetary Sciences", html.Br(),
                                 "University of California, Davis", html.Br(),
+                                ], className="text-muted"),
                                 html.A("amthom@ucdavis.edu", href="mailto:amthom@ucdavis.edu"),
-                            ]),
-                            html.P([
+                            ], className="mb-0"), xs=12, lg=4),
+                            dbc.Col(html.P([
                                 html.Strong("William Marfo"), html.Br(),
+                                html.Small([
                                 "Cascadia Region Earthquake Science Center", html.Br(),
                                 "Department of Earth and Planetary Sciences", html.Br(),
                                 "University of California, Davis", html.Br(),
+                                ], className="text-muted"),
                                 html.A("wmarfo@ucdavis.edu", href="mailto:wmarfo@ucdavis.edu"),
-                            ]),
-                            html.P([
+                            ], className="mb-0"), xs=12, lg=4),
+                            dbc.Col(html.P([
                                 html.Strong("Loïc Bachelot"), html.Br(),
+                                html.Small([
                                 "Cascadia Region Earthquake Science Center", html.Br(),
                                 "Department of Earth Sciences", html.Br(),
                                 "University of Oregon", html.Br(),
+                                ], className="text-muted"),
                                 html.A("lbachelo@uoregon.edu", href="mailto:lbachelo@uoregon.edu"),
-                            ]),
-                        ]),
+                            ], className="mb-0"), xs=12, lg=4),
+                        ], className="g-4"),
+                        ], xs=12, lg=9),
+                        ], className="g-4", style={"overflowWrap": "anywhere"}),
                     ]),
                     dbc.ModalFooter(
                         dbc.Button("Close", id="welcome-close", color="secondary")

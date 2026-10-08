@@ -1,32 +1,37 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-09T00:00:00Z",
+  "updatedAt": "2026-10-08T00:00:00Z",
   "groups": {
     "public": [
       {
         "id": "ttpv1",
         "prefix": "public_ds/ttpv1/",
-        "status": "public"
+        "status": "public",
+        "description_url": "https://doi.org/10.5281/zenodo.15389414"
       },
       {
         "id": "ttpv2",
         "prefix": "public_ds/ttpv2/",
-        "status": "public"
+        "status": "public",
+        "description_url": "https://doi.org/10.5281/zenodo.15389414"
       },
       {
         "id": "bp8-qd-PW",
         "prefix": "public_ds/bp8-qd-PW/",
-        "status": "public"
+        "status": "public",
+        "description_url": "https://strike.scec.org/cvws/seas/download/SEAS_BP8_Benchmark_Description.pdf"
       },
       {
         "id": "bp8-qd-GS",
         "prefix": "public_ds/bp8-qd-GS/",
-        "status": "public"
+        "status": "public",
+        "description_url": "https://strike.scec.org/cvws/seas/download/SEAS_BP8_Benchmark_Description.pdf"
       },
       {
         "id": "TSHA-BP1",
         "prefix": "public_ds/TSHA-BP1/",
-        "status": "development"
+        "status": "development",
+        "description_url": "https://depts.washington.edu/ptha/CopesHubTsunamis/LagoonCreek/"
       },
       {
         "id": "bp9-qd-PW",
@@ -43,27 +48,32 @@
       {
         "id": "ttpv1",
         "prefix": "upload/ttpv1/",
-        "status": "public"
+        "status": "public",
+        "description_url": "https://doi.org/10.5281/zenodo.15389414"
       },
       {
         "id": "ttpv2",
         "prefix": "upload/ttpv2/",
-        "status": "public"
+        "status": "public",
+        "description_url": "https://doi.org/10.5281/zenodo.15389414"
       },
       {
         "id": "bp8-qd-PW",
         "prefix": "upload/bp8-qd-PW/",
-        "status": "public"
+        "status": "public",
+        "description_url": "https://strike.scec.org/cvws/seas/download/SEAS_BP8_Benchmark_Description.pdf"
       },
       {
         "id": "bp8-qd-GS",
         "prefix": "upload/bp8-qd-GS/",
-        "status": "public"
+        "status": "public",
+        "description_url": "https://strike.scec.org/cvws/seas/download/SEAS_BP8_Benchmark_Description.pdf"
       },
       {
         "id": "THSA-BP1",
         "prefix": "upload/THSA-BP1/",
-        "status": "development"
+        "status": "development",
+        "description_url": "https://depts.washington.edu/ptha/CopesHubTsunamis/LagoonCreek/"
       },
       {
         "id": "bp9-qd-PW",
