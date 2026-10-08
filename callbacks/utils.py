@@ -239,6 +239,13 @@ def generate_color_mapping(datasets):
 
 
 @memoize(timeout=3600)
+def _get_metadata_cached(bucket_name, s3_key, object_revision):
+    """Fetch metadata cached for one specific S3 object revision."""
+    response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+    metadata = response['Body'].read().decode('utf-8')
+    return json.loads(metadata)
+
+
 def get_metadata(benchmark_id, dataset_name):
     """
     Get metadata for a dataset.
@@ -253,9 +260,15 @@ def get_metadata(benchmark_id, dataset_name):
     try:
         bucket_name = 'benchmark-vv-data'
         s3_key = f"public_ds/{parse_benchmark_id(benchmark_id)}/{dataset_name}/metadata.json"
-        response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
-        metadata = response['Body'].read().decode('utf-8')
-        return render_json(json.loads(metadata))
+        object_metadata = s3_client.head_object(Bucket=bucket_name, Key=s3_key)
+        object_revision = (
+            object_metadata.get('VersionId'),
+            object_metadata.get('ETag'),
+            object_metadata['LastModified'].isoformat(),
+            object_metadata.get('ContentLength'),
+        )
+        metadata = _get_metadata_cached(bucket_name, s3_key, object_revision)
+        return render_json(metadata)
     except Exception as e:  # noqa: BLE001 - metadata is optional in the UI
         print(f"Error fetching metadata: {e}")
         return None
@@ -314,10 +327,24 @@ def get_benchmark_params(search):
         raise ValueError(f"Error loading benchmark params: {e}") from e
 
 @memoize(timeout=3600)
-def get_benchmarks_list():
-    bucket_name = "benchmark-vv-data"
-    key = "public_ds/benchmarks_list.json"
-
+def _get_benchmarks_list_cached(bucket_name, key, object_revision):
+    """Fetch and parse the benchmark list cached for one S3 revision."""
     resp = s3_client.get_object(Bucket=bucket_name, Key=key)
     content = resp["Body"].read().decode("utf-8")
     return json.loads(content)
+
+
+def get_benchmarks_list():
+    """Get the benchmark list, invalidating the cache after an S3 update."""
+    bucket_name = "benchmark-vv-data"
+    key = "public_ds/benchmarks_list.json"
+
+    metadata = s3_client.head_object(Bucket=bucket_name, Key=key)
+    last_modified = metadata["LastModified"].isoformat()
+    object_revision = (
+        metadata.get("VersionId"),
+        metadata.get("ETag"),
+        last_modified,
+        metadata.get("ContentLength"),
+    )
+    return _get_benchmarks_list_cached(bucket_name, key, object_revision)

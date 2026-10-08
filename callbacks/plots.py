@@ -69,7 +69,7 @@ def _match_subplot_axes(fig, *, x=False, y=False):
         fig.layout.yaxis.matches = None
 
 
-def main_time_plot_dynamic(df, variable_list, x_axis=None, time_axis_unit="s"):
+def main_time_plot_dynamic(df, variable_list, x_axis=None, time_axis_unit="s", mode="lines"):
     """
     Generate a dynamic plot with subplots based on a list of variable dictionaries.
 
@@ -122,9 +122,10 @@ def main_time_plot_dynamic(df, variable_list, x_axis=None, time_axis_unit="s"):
                     go.Scattergl(
                         x=x_values,
                         y=group[var['name']].to_numpy(copy=False),
-                        mode='lines',
+                        mode=mode,
                         name=legend_name,
                         line={"color": color},
+                        marker={"color": color},
                         showlegend=idx == 0,  # Show legend only for the first subplot
                         legendgroup=dataset_name,
                     ),

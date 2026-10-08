@@ -52,13 +52,34 @@ def get_main_page():
                                 'whiteSpace': 'nowrap'
                             }
                         ),
-                        dbc.Button(
-                            "Uploader",
-                            href="https://det-uploader.cascadiaquakes.org/",
-                            target="_blank",
-                            color="light",
-                            size="sm",
-                            style={'whiteSpace': 'nowrap'}
+                        html.Div(
+                            [
+                                dbc.Button(
+                                    [
+                                        "Benchmarks & Info",
+                                    ],
+                                    id="home-button",
+                                    color="light",
+                                    size="sm",
+                                    title="Choose a benchmark or view project information",
+                                    style={
+                                        "whiteSpace": "nowrap",
+                                    },
+                                ),
+                                dbc.Button(
+                                    "Uploader",
+                                    href="https://det-uploader.cascadiaquakes.org/",
+                                    target="_blank",
+                                    color="light",
+                                    size="sm",
+                                    style={'whiteSpace': 'nowrap'}
+                                ),
+                            ],
+                            style={
+                                'display': 'flex',
+                                'alignItems': 'center',
+                                'gap': '0.5rem',
+                            },
                         ),
                     ],
                     style={
@@ -146,10 +167,85 @@ def get_main_page():
                                                                    style={'margin': '10px'}
                                                                    ),
                                                         dbc.Alert(
-                                                            "Warning: Single file upload is not supported for surface files.",
+                                                            [
+                                                                "Uploads are for temporary time-series comparisons only. ",
+                                                                dbc.Button(
+                                                                    "More info",
+                                                                    id="upload-info-open",
+                                                                    color="link",
+                                                                    size="sm",
+                                                                    className="p-0 align-baseline",
+                                                                    n_clicks=0,
+                                                                ),
+                                                            ],
                                                             color="warning",
-                                                            dismissable=True,
                                                             style={'margin': '10px'}
+                                                        ),
+                                                        dbc.Modal(
+                                                            [
+                                                                dbc.ModalHeader(
+                                                                    dbc.ModalTitle("About temporary file uploads")
+                                                                ),
+                                                                dbc.ModalBody([
+                                                                    html.P(
+                                                                        "Use this feature to quickly plot one local "
+                                                                        "time-series file alongside selected published "
+                                                                        "datasets."
+                                                                    ),
+                                                                    html.Ul([
+                                                                        html.Li(
+                                                                            "The file is temporary and is not saved as "
+                                                                            "a persistent platform dataset. It remains "
+                                                                            "available only in the current page session."
+                                                                        ),
+                                                                        html.Li(
+                                                                            "Uploading a file does not select or match "
+                                                                            "the benchmark, file type, receiver, or "
+                                                                            "datasets. Configure those controls before "
+                                                                            "showing the graphs."
+                                                                        ),
+                                                                        html.Li(
+                                                                            "Only one time-series text file is supported. "
+                                                                            "Surface files are not supported."
+                                                                        ),
+                                                                        html.Li(
+                                                                            "Validation is limited to checking that column "
+                                                                            "names and order exactly match the selected file "
+                                                                            "type. Units, values, correctness, and scientific "
+                                                                            "validity are not verified."
+                                                                        ),
+                                                                        html.Li(
+                                                                            "An invalid or incompatible file may not appear "
+                                                                            "on the graph."
+                                                                        ),
+                                                                    ]),
+                                                                    dbc.Alert([
+                                                                        "For persistent dataset submission and processing, ",
+                                                                        html.A(
+                                                                            "use the production uploader",
+                                                                            href=(
+                                                                                "https://det-uploader."
+                                                                                "cascadiaquakes.org/"
+                                                                            ),
+                                                                            target="_blank",
+                                                                            rel="noopener noreferrer",
+                                                                            className="alert-link",
+                                                                        ),
+                                                                        ".",
+                                                                    ], color="info"),
+                                                                ]),
+                                                                dbc.ModalFooter(
+                                                                    dbc.Button(
+                                                                        "Close",
+                                                                        id="upload-info-close",
+                                                                        color="secondary",
+                                                                        n_clicks=0,
+                                                                    )
+                                                                ),
+                                                            ],
+                                                            id="upload-info-modal",
+                                                            is_open=False,
+                                                            centered=True,
                                                         ),
                                                         html.Div([html.H5("Uploaded file:", style={'color': '#000000'}),
                                                                   html.P(id="upload-filename")])
@@ -170,8 +266,18 @@ def get_main_page():
                                                                 [
                                                                     dbc.ModalHeader(
                                                                         dbc.ModalTitle("File Metadata")),
-                                                                    dbc.ModalBody(html.Pre(id='popup-content', style={"maxHeight": "70vh", "overflowY": "auto"})),
-                                                                    # JSON content display
+                                                                    dbc.ModalBody(
+                                                                        dcc.Loading(
+                                                                            html.Pre(
+                                                                                id='popup-content',
+                                                                                style={
+                                                                                    "maxHeight": "70vh",
+                                                                                    "overflowY": "auto",
+                                                                                },
+                                                                            ),
+                                                                            type="circle",
+                                                                        )
+                                                                    ),
                                                                     dbc.ModalFooter(
                                                                         dbc.Button("Close", id="close-popup",
                                                                                    className="ms-auto",
@@ -354,7 +460,31 @@ def get_main_page():
                                 target="_blank",
                                 rel="noopener noreferrer",
                             )
-                        ])
+                        ]),
+                        html.Hr(),
+                        html.H5("Project Contacts"),
+                        html.Div([
+                            html.P([
+                                html.Strong("Amanda M. Thomas"), html.Br(),
+                                "Department of Earth and Planetary Sciences", html.Br(),
+                                "University of California, Davis", html.Br(),
+                                html.A("amthom@ucdavis.edu", href="mailto:amthom@ucdavis.edu"),
+                            ]),
+                            html.P([
+                                html.Strong("William Marfo"), html.Br(),
+                                "Cascadia Region Earthquake Science Center", html.Br(),
+                                "Department of Earth and Planetary Sciences", html.Br(),
+                                "University of California, Davis", html.Br(),
+                                html.A("wmarfo@ucdavis.edu", href="mailto:wmarfo@ucdavis.edu"),
+                            ]),
+                            html.P([
+                                html.Strong("Loïc Bachelot"), html.Br(),
+                                "Cascadia Region Earthquake Science Center", html.Br(),
+                                "Department of Earth Sciences", html.Br(),
+                                "University of Oregon", html.Br(),
+                                html.A("lbachelo@uoregon.edu", href="mailto:lbachelo@uoregon.edu"),
+                            ]),
+                        ]),
                     ]),
                     dbc.ModalFooter(
                         dbc.Button("Close", id="welcome-close", color="secondary")
@@ -364,5 +494,6 @@ def get_main_page():
             # store user's dataset
             dcc.Store(id='benchmark-params'),
             dcc.Store(id="benchmarks-list-store"),
+            dcc.Store(id="metadata-request"),
             dcc.Store(id="camera-sync-state")
         ])

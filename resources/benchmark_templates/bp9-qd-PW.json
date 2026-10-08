@@ -1,0 +1,685 @@
+{
+  "name": "bp9-qd",
+  "files": [
+    {
+      "name": "on_fault_time_series",
+      "content": "On-fault Time-series data",
+      "graph_type": "timeseries",
+      "list_of_receivers": [
+        "fltst_strk-36dp+00",
+        "fltst_strk-16dp+00",
+        "fltst_strk+00dp+00",
+        "fltst_strk+16dp+00",
+        "fltst_strk+36dp+00",
+        "fltst_strk-24dp+10",
+        "fltst_strk-16dp+10",
+        "fltst_strk+00dp+10",
+        "fltst_strk+16dp+10",
+        "fltst_strk+00dp+22"
+      ],
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "slip_d",
+          "unit": "m",
+          "description": "slip d"
+        },
+        {
+          "name": "slip_h",
+          "unit": "m",
+          "description": "slip h"
+        },
+        {
+          "name": "slip_rate_d",
+          "unit": "log10 m/s",
+          "description": "slip rate d"
+        },
+        {
+          "name": "slip_rate_h",
+          "unit": "log10 m/s",
+          "description": "slip rate h"
+        },
+        {
+          "name": "shear_stress_d",
+          "unit": "MPa",
+          "description": "shear stress d"
+        },
+        {
+          "name": "shear_stress_h",
+          "unit": "MPa",
+          "description": "shear stress h"
+        },
+        {
+          "name": "normal_stress",
+          "unit": "MPa",
+          "description": "normal stress"
+        },
+        {
+          "name": "state",
+          "unit": "log10 s",
+          "description": "state"
+        }
+      ],
+      "prefix": "fltst_strk",
+      "file_type": "dat"
+    },
+    {
+      "name": "off_fault_time_series",
+      "content": "Off-fault Time-series data",
+      "graph_type": "timeseries",
+      "list_of_receivers": [
+        "blkst_strk-16fn+08dp+00",
+        "blkst_strk+00fn+08dp+00",
+        "blkst_strk+16fn+08dp+00",
+        "blkst_strk+00fn+16dp+00",
+        "blkst_strk+00fn+32dp+00",
+        "blkst_strk-16fn-08dp+00",
+        "blkst_strk+00fn-08dp+00",
+        "blkst_strk+16fn-08dp+00",
+        "blkst_strk+00fn-16dp+00",
+        "blkst_strk+00fn-32dp+00",
+        "blkst_strk+00fn+08dp+10",
+        "blkst_strk+00fn+16dp+10",
+        "blkst_strk+00fn+32dp+10",
+        "blkst_strk+00fn+08dp-10",
+        "blkst_strk+00fn+16dp-10",
+        "blkst_strk+00fn+32dp-10"
+      ],
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "disp_1",
+          "unit": "m",
+          "description": "displacement 1"
+        },
+        {
+          "name": "disp_2",
+          "unit": "m",
+          "description": "displacement 2"
+        },
+        {
+          "name": "disp_3",
+          "unit": "m",
+          "description": "displacement 3"
+        },
+        {
+          "name": "vel_1",
+          "unit": "m/s",
+          "description": "velocity 1"
+        },
+        {
+          "name": "vel_2",
+          "unit": "m/s",
+          "description": "velocity 2"
+        },
+        {
+          "name": "vel_3",
+          "unit": "m/s",
+          "description": "velocity 3"
+        }
+      ],
+      "prefix": "blkst_strk",
+      "file_type": "dat"
+    },
+    {
+      "name": "global_source_parameter_time_series",
+      "content": "Global source parameter time-series data",
+      "graph_type": "timeseries",
+      "list_of_receivers": [
+        "global"
+      ],
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10 m/s",
+          "description": "Maximum slip rate"
+        },
+        {
+          "name": "moment_density_rate",
+          "unit": "N*m/s",
+          "description": "Moment density rate"
+        }
+      ],
+      "prefix": "global",
+      "file_type": "dat"
+    },
+    {
+      "name": "earthquake_catalog_time_series",
+      "content": "Earthquake Catalog data",
+      "graph_type": "scatter",
+      "x_axis": "event_no",
+      "list_of_receivers": [
+        "catalog"
+      ],
+      "var_list": [
+        {
+          "name": "event_no",
+          "unit": "",
+          "description": "Event number"
+        },
+        {
+          "name": "t_start",
+          "unit": "s",
+          "description": "Time event starts"
+        },
+        {
+          "name": "t_end",
+          "unit": "s",
+          "description": "Time event ends"
+        },
+        {
+          "name": "rup_area",
+          "unit": "m^2",
+          "description": "Rupture area"
+        },
+        {
+          "name": "avg_stress_start",
+          "unit": "MPa",
+          "description": "Spatial average of stress within rupture area at t_start"
+        },
+        {
+          "name": "avg_stress_end",
+          "unit": "MPa",
+          "description": "Spatial average of stress within rupture area at t_end"
+        },
+        {
+          "name": "avg_slip",
+          "unit": "m",
+          "description": "Average slip in rupture area"
+        }
+      ],
+      "prefix": "catalog",
+      "file_type": "dat"
+    },
+    {
+      "name": "Slip d evolution along strike",
+      "content": "Slip d evolution along strike",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "x"
+      },
+      "list_of_receivers": [
+        "slip_d_strike"
+      ],
+      "grid": {
+        "x": {
+          "min": -38.0,
+          "max": 38.0,
+          "n": 77
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2.5229e11,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x2",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "slip_d",
+          "unit": "m",
+          "description": "Slip d"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "slip_d_strike",
+      "file_type": "dat"
+    },
+    {
+      "name": "Slip d evolution along dip",
+      "content": "Slip d evolution along dip",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "list_of_receivers": [
+        "slip_d_dip"
+      ],
+      "grid": {
+        "z": {
+          "min": 0.0,
+          "max": 40.0,
+          "n": 41
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2.5229e11,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "xd",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "slip_d",
+          "unit": "m",
+          "description": "Slip"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "slip_d_dip",
+      "file_type": "dat"
+    },
+    {
+      "name": "Slip h evolution along strike",
+      "content": "Slip h evolution along strike",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "x"
+      },
+      "list_of_receivers": [
+        "slip_h_strike"
+      ],
+      "grid": {
+        "x": {
+          "min": -38.0,
+          "max": 38.0,
+          "n": 77
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2.5229e11,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x2",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "slip_h",
+          "unit": "m",
+          "description": "Slip h"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "slip_h_strike",
+      "file_type": "dat"
+    },
+    {
+      "name": "Slip h evolution along dip",
+      "content": "Slip h evolution along dip",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "list_of_receivers": [
+        "slip_3_dip"
+      ],
+      "grid": {
+        "z": {
+          "min": 0.0,
+          "max": 40.0,
+          "n": 41
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2.5229e11,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "xd",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "slip_h",
+          "unit": "m",
+          "description": "Slip h"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "slip_h_dip",
+      "file_type": "dat"
+    },
+    {
+      "name": "Shear stress d evolution along strike",
+      "content": "Shear stress d evolution along strike",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "x",
+        "slip_name": "stress_d"
+      },
+      "list_of_receivers": [
+        "stress_d_strike"
+      ],
+      "grid": {
+        "x": {
+          "min": -38.0,
+          "max": 38.0,
+          "n": 77
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2.5229e11,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x2",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "stress_d",
+          "unit": "MPa",
+          "description": "Shear stress d"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "stress_d_strike",
+      "file_type": "dat"
+    },
+    {
+      "name": "Shear stress d evolution along dip",
+      "content": "Shear stress d evolution along dip",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "slip_name": "stress_d"
+      },
+      "list_of_receivers": [
+        "stress_d_dip"
+      ],
+      "grid": {
+        "z": {
+          "min": 0.0,
+          "max": 40.0,
+          "n": 41
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2.5229e11,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "xd",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "stress_d",
+          "unit": "MPa",
+          "description": "Shear stress d"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "stress_d_dip",
+      "file_type": "dat"
+    },
+    {
+      "name": "Shear stress h evolution along strike",
+      "content": "Shear stress h evolution along strike",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "x",
+        "slip_name": "stress_h"
+      },
+      "list_of_receivers": [
+        "stress_h_strike"
+      ],
+      "grid": {
+        "x": {
+          "min": -38.0,
+          "max": 38.0,
+          "n": 77
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2.5229e11,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x2",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "stress_h",
+          "unit": "MPa",
+          "description": "Shear stress h"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "stress_h_strike",
+      "file_type": "dat"
+    },
+    {
+      "name": "Shear stress h evolution along dip",
+      "content": "Shear stress h evolution along dip",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "slip_name": "stress_h"
+      },
+      "list_of_receivers": [
+        "stress_h_dip"
+      ],
+      "grid": {
+        "z": {
+          "min": 0.0,
+          "max": 40.0,
+          "n": 41
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2.5229e11,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "xd",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "stress_h",
+          "unit": "MPa",
+          "description": "Shear stress h"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "stress_h_dip",
+      "file_type": "dat"
+    },
+    {
+      "name": "Normal stress n evolution along strike",
+      "content": "Normal stress n evolution along strike",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "x",
+        "slip_name": "stress_n"
+      },
+      "list_of_receivers": [
+        "stress_n_strike"
+      ],
+      "grid": {
+        "x": {
+          "min": -38.0,
+          "max": 38.0,
+          "n": 77
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2.5229e11,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "x2",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "stress_n",
+          "unit": "MPa",
+          "description": "Normal stress n"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "stress_n_strike",
+      "file_type": "dat"
+    },
+    {
+      "name": "Normal stress n evolution along dip",
+      "content": "Normal stress n evolution along dip",
+      "graph_type": "surface",
+      "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "slip_name": "stress_n"
+      },
+      "list_of_receivers": [
+        "stress_n_dip"
+      ],
+      "grid": {
+        "z": {
+          "min": 0.0,
+          "max": 40.0,
+          "n": 41
+        },
+        "t": {
+          "min": 0.0,
+          "max": 2.5229e11,
+          "n": 1000
+        }
+      },
+      "var_list": [
+        {
+          "name": "t",
+          "unit": "s",
+          "description": "time"
+        },
+        {
+          "name": "xd",
+          "unit": "m",
+          "description": "distance"
+        },
+        {
+          "name": "stress_n",
+          "unit": "MPa",
+          "description": "Normal stress n"
+        },
+        {
+          "name": "max_slip_rate",
+          "unit": "log10(m/s)",
+          "description": "maximum slip rate at time t"
+        }
+      ],
+      "prefix": "stress_n_dip",
+      "file_type": "dat"
+    }
+  ]
+}

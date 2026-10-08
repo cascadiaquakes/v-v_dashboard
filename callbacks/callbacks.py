@@ -223,13 +223,20 @@ def get_callbacks(app):
         else:
             x_axis = next((item for item in plots_list if item['name'] == x_axis_sel), plots_list[0])
 
-            main_graph, main_graph_style = main_time_plot_dynamic(ds_update, plots_list, x_axis, time_axis_unit)
+            trace_mode = "markers" if plot_type == "scatter" else "lines"
+            main_graph, main_graph_style = main_time_plot_dynamic(
+                ds_update,
+                plots_list,
+                x_axis,
+                time_axis_unit,
+                mode=trace_mode,
+            )
             sub_graph = go.Figure()
             sub_graph_style = {'display': 'none'}
 
         return main_graph, main_graph_style, sub_graph, sub_graph_style
 
-    ### Callback 1: Generate Links Based on Dataset Choice and Benchmark ID
+    # Generate metadata links for the selected datasets.
     @app.callback(
         dash.dependencies.Output('links-container', 'children'),
         dash.dependencies.Input('show-graphs', 'n_clicks'),
@@ -242,7 +249,11 @@ def get_callbacks(app):
             html.Div(
                 children=[
                     html.Span("Metadata: "),
-                    html.A(file, href='#', id={'type': 'file-link', 'index': file}),
+                    html.Button(
+                        file,
+                        id={'type': 'file-link', 'index': file},
+                        className="btn btn-link p-0 border-0 align-baseline",
+                    ),
                 ],
                 style={'marginBottom': '10px'}
             )
@@ -250,31 +261,76 @@ def get_callbacks(app):
         ]
         return links
 
-    ### Callback 2: Handle Modal Open/Close Logic
-    @app.callback(
-        dash.dependencies.Output('popup-content', 'children'),
+    # Open the modal immediately in the browser and queue a metadata request.
+    app.clientside_callback(
+        """
+        function(fileClicks, _closeClicks) {
+            const callbackContext = dash_clientside.callback_context;
+            const triggered = callbackContext.triggered;
+            if (!triggered || triggered.length === 0) {
+                return [dash_clientside.no_update, dash_clientside.no_update];
+            }
+
+            const propId = triggered[0].prop_id || "";
+
+            if (propId.includes('"type":"file-link"')) {
+                const values = Array.isArray(fileClicks) ? fileClicks : [fileClicks];
+                const wasClicked = values.some(value => Number(value || 0) > 0);
+                if (!wasClicked) {
+                    return [dash_clientside.no_update, dash_clientside.no_update];
+                }
+
+                let triggeredId;
+                try {
+                    triggeredId = JSON.parse(propId.slice(0, propId.lastIndexOf(".")));
+                } catch (error) {
+                    return [dash_clientside.no_update, dash_clientside.no_update];
+                }
+
+                return [
+                    true,
+                    {filename: triggeredId.index, request_id: Date.now()},
+                ];
+            }
+
+            if (propId === "close-popup.n_clicks") {
+                return [false, dash_clientside.no_update];
+            }
+
+            return [dash_clientside.no_update, dash_clientside.no_update];
+        }
+        """,
         dash.dependencies.Output('popup-modal', 'is_open'),
+        dash.dependencies.Output('metadata-request', 'data'),
         dash.dependencies.Input({'type': 'file-link', 'index': dash.dependencies.ALL}, 'n_clicks'),
         dash.dependencies.Input('close-popup', 'n_clicks'),
-        dash.dependencies.State('popup-modal', 'is_open'),
+        prevent_initial_call=True
+    )
+
+    # Fetch metadata independently so network latency cannot delay the modal.
+    @app.callback(
+        dash.dependencies.Output('popup-content', 'children'),
+        dash.dependencies.Input('metadata-request', 'data'),
         dash.dependencies.State('url', 'search'),
         prevent_initial_call=True
     )
-    def handle_modal(file_clicks, close_click, is_open, benchmark_id):
-        triggered = ctx.triggered
-        # Debug: Check what triggered the callback
-        if not triggered:
-            return "", False  # No valid trigger, return modal closed.
+    def load_metadata(request, benchmark_id):
+        if not request or not request.get("filename"):
+            return no_update
+        return get_metadata(benchmark_id, request["filename"])
 
-        # Check if a file link was clicked
-        if "file-link" in triggered[0]['prop_id'] and triggered[0]['value']:
-            file_name = eval(triggered[0]['prop_id'].rsplit('.', 1)[0])['index']
-            # Fetch and format metadata
-            metadata = get_metadata(benchmark_id, file_name)
-            return metadata, True  # Open modal with metadata
-
-        # Close modal if the close button was clicked
-        return "", False
+    @app.callback(
+        dash.dependencies.Output("upload-info-modal", "is_open"),
+        dash.dependencies.Input("upload-info-open", "n_clicks"),
+        dash.dependencies.Input("upload-info-close", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def toggle_upload_info_modal(_open_clicks, _close_clicks):
+        if ctx.triggered_id == "upload-info-open":
+            return True
+        if ctx.triggered_id == "upload-info-close":
+            return False
+        return no_update
 
     @app.callback(dash.dependencies.Output('upload-filename', 'children'),
                   dash.dependencies.Input('upload-data', 'contents'),
@@ -308,7 +364,14 @@ def get_callbacks(app):
         """
         datasets = fetch_group_names_for_benchmark(search)
         links = [
-            {'label': html.Span([file, html.A(": info", href='#', id={'type': 'file-link', 'index': file})]),
+            {'label': html.Span([
+                file,
+                html.Button(
+                    ": info",
+                    id={'type': 'file-link', 'index': file},
+                    className="btn btn-link p-0 border-0 align-baseline",
+                ),
+            ]),
              'value': file}
             for file in datasets or []  # Handle case if dataset_list is None
         ]
@@ -320,11 +383,12 @@ def get_callbacks(app):
         dash.dependencies.Output("welcome-modal", "is_open"),
         dash.dependencies.Output("benchmarks-list-store", "data"),
         dash.dependencies.Input("url", "search"),
+        dash.dependencies.Input("home-button", "n_clicks"),
         dash.dependencies.Input("welcome-close", "n_clicks"),
         dash.dependencies.State("welcome-modal", "is_open"),
         prevent_initial_call=False,
     )
-    def load_benchmark_params(search, close_clicks, modal_is_open):
+    def load_benchmark_params(search, home_clicks, close_clicks, modal_is_open):
         # Which input triggered?
         trigger = dash.callback_context.triggered[0]["prop_id"].split(".")[
             0] if dash.callback_context.triggered else None
@@ -332,6 +396,16 @@ def get_callbacks(app):
         # 1) Close button wins: just close the modal, don't touch anything else
         if trigger == "welcome-close":
             return no_update, no_update, False, no_update
+
+        # Home always returns to the base URL and reopens the benchmark picker,
+        # including when the browser is already at the base URL.
+        if trigger == "home-button":
+            try:
+                blist = get_benchmarks_list()
+            except Exception as e:  # noqa: BLE001 - keep the modal usable if loading fails
+                print(f"Error loading benchmarks list: {e}")
+                blist = None
+            return None, "/", True, blist
 
         # 2) Otherwise, we're here because url.search fired (initial load or navigation)
         try:
@@ -455,12 +529,13 @@ def get_callbacks(app):
 
                 # build meta from var_list so we can label slider units nicely
                 xaxis_options = list_vars.copy()
-                if 't' not in xaxis_options:
-                    xaxis_options.append('t')
+                default_xaxis = file.get("x_axis", "t")
+                if default_xaxis not in xaxis_options:
+                    default_xaxis = xaxis_options[0] if xaxis_options else ""
                 return (
                     file['list_of_receivers'], file['list_of_receivers'][0],
                     list_vars, list_vars[-1],
-                    xaxis_options, 't',
+                    xaxis_options, default_xaxis,
                     cross_axis_opts, default_cross_axis,
                     [],  # reset switch checkbox
                 )
