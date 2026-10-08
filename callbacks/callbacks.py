@@ -251,7 +251,8 @@ def get_callbacks(app):
                     html.Span("Metadata: "),
                     html.Button(
                         file,
-                        id={'type': 'file-link', 'index': file},
+                        id={'type': 'file-link', 'index': file, 'source': 'graph'},
+                        n_clicks_timestamp=-1,
                         className="btn btn-link p-0 border-0 align-baseline",
                     ),
                 ],
@@ -264,46 +265,55 @@ def get_callbacks(app):
     # Open the modal immediately in the browser and queue a metadata request.
     app.clientside_callback(
         """
-        function(fileClicks, _closeClicks) {
+        function(fileTimestamps, _closeClicks, fileIds, handledClicks) {
+            const noUpdate = dash_clientside.no_update;
             const callbackContext = dash_clientside.callback_context;
             const triggered = callbackContext.triggered;
             if (!triggered || triggered.length === 0) {
-                return [dash_clientside.no_update, dash_clientside.no_update];
+                return [noUpdate, noUpdate, noUpdate];
             }
 
             const propId = triggered[0].prop_id || "";
 
             if (propId.includes('"type":"file-link"')) {
-                const values = Array.isArray(fileClicks) ? fileClicks : [fileClicks];
-                const wasClicked = values.some(value => Number(value || 0) > 0);
-                if (!wasClicked) {
-                    return [dash_clientside.no_update, dash_clientside.no_update];
-                }
-
                 let triggeredId;
                 try {
                     triggeredId = JSON.parse(propId.slice(0, propId.lastIndexOf(".")));
                 } catch (error) {
-                    return [dash_clientside.no_update, dash_clientside.no_update];
+                    return [noUpdate, noUpdate, noUpdate];
+                }
+
+                const index = (fileIds || []).findIndex(id =>
+                    id.type === triggeredId.type && id.index === triggeredId.index &&
+                    id.source === triggeredId.source);
+                const timestamp = Number((fileTimestamps || [])[index]);
+                const key = JSON.stringify([triggeredId.source, triggeredId.index]);
+                const previous = (handledClicks || {})[key] ?? -1;
+                if (index < 0 || !Number.isFinite(timestamp) || timestamp <= previous || timestamp <= 0) {
+                    return [noUpdate, noUpdate, noUpdate];
                 }
 
                 return [
                     true,
                     {filename: triggeredId.index, request_id: Date.now()},
+                    {...(handledClicks || {}), [key]: timestamp},
                 ];
             }
 
             if (propId === "close-popup.n_clicks") {
-                return [false, dash_clientside.no_update];
+                return [false, noUpdate, noUpdate];
             }
 
-            return [dash_clientside.no_update, dash_clientside.no_update];
+            return [noUpdate, noUpdate, noUpdate];
         }
         """,
         dash.dependencies.Output('popup-modal', 'is_open'),
         dash.dependencies.Output('metadata-request', 'data'),
-        dash.dependencies.Input({'type': 'file-link', 'index': dash.dependencies.ALL}, 'n_clicks'),
+        dash.dependencies.Output('metadata-handled-clicks', 'data'),
+        dash.dependencies.Input({'type': 'file-link', 'index': dash.dependencies.ALL, 'source': dash.dependencies.ALL}, 'n_clicks_timestamp'),
         dash.dependencies.Input('close-popup', 'n_clicks'),
+        dash.dependencies.State({'type': 'file-link', 'index': dash.dependencies.ALL, 'source': dash.dependencies.ALL}, 'id'),
+        dash.dependencies.State('metadata-handled-clicks', 'data'),
         prevent_initial_call=True
     )
 
@@ -368,7 +378,8 @@ def get_callbacks(app):
                 file,
                 html.Button(
                     ": info",
-                    id={'type': 'file-link', 'index': file},
+                    id={'type': 'file-link', 'index': file, 'source': 'selector'},
+                    n_clicks_timestamp=-1,
                     className="btn btn-link p-0 border-0 align-baseline",
                 ),
             ]),
