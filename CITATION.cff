@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Verification and Validation (V&V) Dashboard"
+version: "1.0.1"
+doi: 10.5281/zenodo.18778323
+date-released: 2026-06-12
+license: BSD-3-Clause
+repository-code: "https://github.com/cascadiaquakes/v-v_dashboard"
+url: "https://det.cascadiaquakes.org"
+authors:
+  - family-names: Bachelot
+    given-names: Loïc
+    orcid: "https://orcid.org/0000-0003-0711-8581"
+  - family-names: Marfo
+    given-names: William
+    orcid: "https://orcid.org/0009-0003-0631-2750"
