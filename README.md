@@ -1,12 +1,17 @@
 # v-v_dashboard (DET Viewer)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18778323.svg)](https://doi.org/10.5281/zenodo.18778323)
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+
+**Live dashboard:** https://det.cascadiaquakes.org
+
 Dash app + AWS CDK stack for the DET “viewer”.
 
 **What it does:** serves a Dash web app on **ECS Fargate** behind an **ALB**, exposes a small **API Gateway** endpoint for status checks, and invokes a **Lambda (container image)** during uploads. Data lives in an existing **S3 bucket** and **DynamoDB** table.
 
 **Stacks provided:**
-- **`DashboardStack`** — main environment (default). Runs in **public-ip** mode to minimize cost (no ECS/ECR/Logs interface endpoints; only S3 gateway endpoint).
-- **`DashboardStackTest`** — optional test stack to validate changes safely. Use for experiments, then destroy to avoid cost.
+- **`DashboardStack`**: production. Runs in **public-ip** mode to minimize cost (no ECS/ECR/Logs interface endpoints; only S3 gateway endpoint).
+- **`DashboardEcsDev`**: app-only dev stack that reuses the production VPC, cluster and subnets, for checking changes before they reach production.
 
 ---
 
@@ -16,46 +21,27 @@ The platform is described in Bachelot et al., [*CRESCENT Earthquake Dynamic Rupt
 
 ---
 
-## CI/CD Pipeline (Recommended)
+## CI/CD Pipeline
 
-This repo ships with **GitHub Actions**. Deploys are pinned to **us-west-2** and the workflow updates an existing stack.
+This repo ships with **GitHub Actions**. Deploys are pinned to **us-west-2** and use AWS **OIDC** (no stored keys).
 
-### CI (Continuous Integration)
-- **Trigger:** pushes to `ci/test` and PRs to `main`.
-- **Actions:** Ruff lint, pytest, and quick Docker build sanity checks.
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci` | PRs to `main` | Ruff lint, pytest, and quick Docker build checks |
+| `deploy-dev` | Push to `main` (or manual) | Builds the image and deploys `DashboardEcsDev` |
+| `deploy-prod` | Manual, needs an approval on the `production` environment | Builds and pushes the app and Lambda images, deploys `DashboardStack`, then smoke-tests it |
+| `destroy-dev` | Manual, type `DESTROY DashboardEcsDev` to confirm | Tears down the dev stack |
+| `destroy-prod` | Manual, approval plus typing `DESTROY DashboardStack` to confirm | Tears down production |
 
-### CD (Continuous Delivery)
-- **Trigger:**
-  - Automatically on pushes to `ci/test`, **or**
-  - Manually via **Actions → deploy-dev → Run workflow** (choose a branch, typically `main`).
-- **What it does:** Uses AWS **OIDC** (no stored keys), builds & pushes the app and Lambda images to **ECR (us-west-2)**, deploys with **CDK**, then smoke-tests the ALB and status API.
-- **Inputs (manual runs):**
-  - **Image tag** (optional): defaults to the commit SHA.
-  - **Stack**: `DashboardStack` *(default)* or `DashboardStackTest`.
-
-> The workflow exposes `DEPLOY_REGION` and is locked to `us-west-2`.
+**Dynamic image tags:** the commit SHA is passed to CDK for both ECS and Lambda, keeping images in sync.
 
 ---
 
 ## How to Deploy
 
-### Option A — Push to the CI branch (auto)
-```bash
-git push origin ci/test
-````
-
-This triggers CI and then deploys **`DashboardStack`** with the commit SHA as the image tag.
-
-### Option B — Run it manually
-
-1. Go to **Actions → deploy-dev**.
-2. Click **Run workflow**.
-3. Choose **Branch: main** (or another branch you want).
-4. (Optional) Set **Image tag**; otherwise it uses the commit SHA.
-5. Set **Stack** to deploy: `DashboardStack` or `DashboardStackTest`.
-6. Run and follow the logs.
-
-**Dynamic image tags:** the commit SHA is passed to CDK for both ECS and Lambda, keeping images in sync.
+1. Open a PR into `main`. CI runs on it.
+2. Merge. `deploy-dev` deploys the change to `DashboardEcsDev` automatically.
+3. Check the dev stack, then go to **Actions → deploy-prod → Run workflow** on `main`. A reviewer on the `production` environment approves it before it runs.
 
 ---
 
@@ -64,7 +50,7 @@ This triggers CI and then deploys **`DashboardStack`** with the commit SHA as th
 The workflow already curls the ALB and the status API. You can also fetch the live URLs from CloudFormation outputs:
 
 ```bash
-STACK="DashboardStack"   # or DashboardStackTest
+STACK="DashboardStack"   # or DashboardEcsDev
 REGION="us-west-2"
 
 ALB_URL=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$REGION" \
@@ -86,10 +72,10 @@ curl -fsS "$API_URL"
 
 ## Destroy the environment (when you’re done)
 
-**Preferred:** run **Actions → destroy-dev → Run workflow** and set the **Stack to destroy** (e.g., `DashboardStackTest`).
+**Preferred:** run **Actions → destroy-dev** (or **destroy-prod** for production) and type the confirmation phrase shown in the input.
 **Alternative:** delete the stack from the **CloudFormation** console.
 
-> ⚠️ Destroying removes the stack resources. Only run it when you truly want the stack gone.
+> **Warning:** destroying removes the stack resources. Only run it when you truly want the stack gone.
 
 ---
 
@@ -136,6 +122,32 @@ After that, you can run `cdk synth/deploy` locally if needed.
 * If you ever need the private interface endpoints again, flip the flag in `cdk/app.py` (`include_ecs_private_endpoints=True`) and redeploy.
 
 ---
+## How to Cite
+
+> Bachelot, L., & Marfo, W. (2026). *Verification and Validation (V&V) Dashboard* (v1.0.1). Zenodo. https://doi.org/10.5281/zenodo.18778323
+
+The platform is described in:
+
+> Bachelot, L., Kutschera, F., Barall, M., Erickson, B. A., Dunham, E. M., Gabriel, A.-A., Harris, R., Ma, S., Thomas, A. M., & Zhang, W. (2026). CRESCENT Earthquake Dynamic Rupture, Earthquake Cycle, and Tsunami Code Verification Platform. *Seismica*, 5(2). https://doi.org/10.26443/seismica.v5i2.2716
+
+---
+
+## License
+
+This project is licensed under the BSD 3-Clause License. See [LICENSE](LICENSE).
+
+---
+
+## Contacts
+
+- **Loïc Bachelot**, University of Oregon: [lbachelo@uoregon.edu](mailto:lbachelo@uoregon.edu)
+- **William Marfo**, University of California, Davis: [wmarfo@ucdavis.edu](mailto:wmarfo@ucdavis.edu)
+- **Amanda M. Thomas**, University of California, Davis: [amthom@ucdavis.edu](mailto:amthom@ucdavis.edu)
+
+For bugs or feature requests, please [open an issue](https://github.com/cascadiaquakes/v-v_dashboard/issues).
+
+---
+
 ## Acknowledgments
 
 <table>
@@ -149,4 +161,4 @@ After that, you can run `cdk synth/deploy` locally if needed.
   </tr>
 </table>
 
-CRESCENT is funded by NSF cooperative agreement #2225286 and is also supported by the Pacific Gas and Electric Company (PG&E).
+CRESCENT is funded by NSF Cooperative Agreement EAR-2225286 and is also supported by the Pacific Gas and Electric Company (PG&E).
