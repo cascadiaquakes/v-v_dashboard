@@ -1,5 +1,5 @@
 {
-  "name": "bp9-qd",
+  "name": "bp9-qd-PW",
   "files": [
     {
       "name": "on_fault_time_series",
@@ -85,9 +85,9 @@
         "blkst_strk+00fn+08dp+10",
         "blkst_strk+00fn+16dp+10",
         "blkst_strk+00fn+32dp+10",
-        "blkst_strk+00fn+08dp-10",
-        "blkst_strk+00fn+16dp-10",
-        "blkst_strk+00fn+32dp-10"
+        "blkst_strk+00fn-08dp+10",
+        "blkst_strk+00fn-16dp+10",
+        "blkst_strk+00fn-32dp+10"
       ],
       "var_list": [
         {
@@ -148,7 +148,7 @@
           "description": "Maximum slip rate"
         },
         {
-          "name": "moment_density_rate",
+          "name": "moment_rate",
           "unit": "N*m/s",
           "description": "Moment density rate"
         }
@@ -210,15 +210,16 @@
       "graph_type": "surface",
       "reader": "seas_slip_long",
       "reader_kwargs": {
-        "z_name": "x"
+        "z_name": "x2",
+        "slip_name": "slip_d"
       },
       "list_of_receivers": [
         "slip_d_strike"
       ],
       "grid": {
-        "x": {
-          "min": -38.0,
-          "max": 38.0,
+        "x2": {
+          "min": -38000.0,
+          "max": 38000.0,
           "n": 77
         },
         "t": {
@@ -257,13 +258,17 @@
       "content": "Slip d evolution along dip",
       "graph_type": "surface",
       "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "xd",
+        "slip_name": "slip_d"
+      },
       "list_of_receivers": [
         "slip_d_dip"
       ],
       "grid": {
-        "z": {
+        "xd": {
           "min": 0.0,
-          "max": 40.0,
+          "max": 40000.0,
           "n": 41
         },
         "t": {
@@ -303,15 +308,16 @@
       "graph_type": "surface",
       "reader": "seas_slip_long",
       "reader_kwargs": {
-        "z_name": "x"
+        "z_name": "x2",
+        "slip_name": "slip_h"
       },
       "list_of_receivers": [
         "slip_h_strike"
       ],
       "grid": {
-        "x": {
-          "min": -38.0,
-          "max": 38.0,
+        "x2": {
+          "min": -38000.0,
+          "max": 38000.0,
           "n": 77
         },
         "t": {
@@ -350,13 +356,17 @@
       "content": "Slip h evolution along dip",
       "graph_type": "surface",
       "reader": "seas_slip_long",
+      "reader_kwargs": {
+        "z_name": "xd",
+        "slip_name": "slip_h"
+      },
       "list_of_receivers": [
-        "slip_3_dip"
+        "slip_h_dip"
       ],
       "grid": {
-        "z": {
+        "xd": {
           "min": 0.0,
-          "max": 40.0,
+          "max": 40000.0,
           "n": 41
         },
         "t": {
@@ -396,16 +406,16 @@
       "graph_type": "surface",
       "reader": "seas_slip_long",
       "reader_kwargs": {
-        "z_name": "x",
+        "z_name": "x2",
         "slip_name": "stress_d"
       },
       "list_of_receivers": [
         "stress_d_strike"
       ],
       "grid": {
-        "x": {
-          "min": -38.0,
-          "max": 38.0,
+        "x2": {
+          "min": -38000.0,
+          "max": 38000.0,
           "n": 77
         },
         "t": {
@@ -445,15 +455,16 @@
       "graph_type": "surface",
       "reader": "seas_slip_long",
       "reader_kwargs": {
+        "z_name": "xd",
         "slip_name": "stress_d"
       },
       "list_of_receivers": [
         "stress_d_dip"
       ],
       "grid": {
-        "z": {
+        "xd": {
           "min": 0.0,
-          "max": 40.0,
+          "max": 40000.0,
           "n": 41
         },
         "t": {
@@ -493,16 +504,16 @@
       "graph_type": "surface",
       "reader": "seas_slip_long",
       "reader_kwargs": {
-        "z_name": "x",
+        "z_name": "x2",
         "slip_name": "stress_h"
       },
       "list_of_receivers": [
         "stress_h_strike"
       ],
       "grid": {
-        "x": {
-          "min": -38.0,
-          "max": 38.0,
+        "x2": {
+          "min": -38000.0,
+          "max": 38000.0,
           "n": 77
         },
         "t": {
@@ -542,15 +553,16 @@
       "graph_type": "surface",
       "reader": "seas_slip_long",
       "reader_kwargs": {
+        "z_name": "xd",
         "slip_name": "stress_h"
       },
       "list_of_receivers": [
         "stress_h_dip"
       ],
       "grid": {
-        "z": {
+        "xd": {
           "min": 0.0,
-          "max": 40.0,
+          "max": 40000.0,
           "n": 41
         },
         "t": {
@@ -590,16 +602,16 @@
       "graph_type": "surface",
       "reader": "seas_slip_long",
       "reader_kwargs": {
-        "z_name": "x",
+        "z_name": "x2",
         "slip_name": "stress_n"
       },
       "list_of_receivers": [
         "stress_n_strike"
       ],
       "grid": {
-        "x": {
-          "min": -38.0,
-          "max": 38.0,
+        "x2": {
+          "min": -38000.0,
+          "max": 38000.0,
           "n": 77
         },
         "t": {
@@ -639,15 +651,16 @@
       "graph_type": "surface",
       "reader": "seas_slip_long",
       "reader_kwargs": {
+        "z_name": "xd",
         "slip_name": "stress_n"
       },
       "list_of_receivers": [
         "stress_n_dip"
       ],
       "grid": {
-        "z": {
+        "xd": {
           "min": 0.0,
-          "max": 40.0,
+          "max": 40000.0,
           "n": 41
         },
         "t": {
