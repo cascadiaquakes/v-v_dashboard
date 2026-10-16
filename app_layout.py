@@ -2,6 +2,23 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 
 
+def plot_loading(children):
+    """Observe server responses as well as the client-rendered graph figures."""
+    return dcc.Loading(
+        id="ls-loading-1",
+        children=[*children, dcc.Store(id="plot-load-response"),
+                  dcc.Store(id="plot-viewport-response")],
+        type="default",
+        color="var(--bs-primary)",
+        target_components={
+            "plot-load-response": "data", "plot-viewport-response": "data",
+            "main-graph": "figure", "sub-graph": "figure",
+        },
+        overlay_style={"visibility": "visible"},
+        delay_show=250,
+    )
+
+
 def get_main_page():
     init_datasets = []
     return html.Div(
@@ -399,7 +416,7 @@ def get_main_page():
                                 width=3,
                             ),
                             dbc.Col([
-                                dcc.Loading(id="ls-loading-1", children=[
+                                plot_loading([
                                     dcc.Graph(
                                         id='main-graph',
                                         style={'responsive': True,
@@ -417,9 +434,7 @@ def get_main_page():
                                                 }
                                                 }
                                     ),
-                                ], type="default"),
-                                html.Div(id="main-line-status", role="status", className="text-muted small"),
-                                dcc.Loading(id="ls-loading-2", children=[
+                                    html.Div(id="main-line-status", role="status", className="text-muted small"),
                                     dcc.Graph(
                                         id='sub-graph',
                                         style={'responsive': True,
@@ -436,8 +451,8 @@ def get_main_page():
                                                 }
                                                 }
                                     ),
-                                ], type="default"),
-                                html.Div(id="sub-line-status", role="status", className="text-muted small"),
+                                    html.Div(id="sub-line-status", role="status", className="text-muted small"),
+                                ]),
                             ],
                                 align="start",
                                 width=9)
@@ -530,9 +545,7 @@ def get_main_page():
             dcc.Store(id="metadata-handled-clicks", data={}),
             dcc.Store(id="camera-sync-state"),
             dcc.Store(id="plot-load-request"),
-            dcc.Store(id="plot-load-response"),
             dcc.Store(id="plot-viewport-request"),
-            dcc.Store(id="plot-viewport-response"),
             dcc.Store(id="plot-state"),
             dcc.Store(id="plot-recover"),
         ])
