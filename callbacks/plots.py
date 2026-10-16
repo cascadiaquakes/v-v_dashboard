@@ -3,6 +3,7 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from callbacks.line_sampling import POINTS_PER_CURVE, POINTS_PER_GRAPH, sample_figure
 from callbacks.utils import generate_color_mapping
 
 TIME_UNIT_FACTORS = {
@@ -69,7 +70,9 @@ def _match_subplot_axes(fig, *, x=False, y=False):
         fig.layout.yaxis.matches = None
 
 
-def main_time_plot_dynamic(df, variable_list, x_axis=None, time_axis_unit="s", mode="lines"):
+def main_time_plot_dynamic(df, variable_list, x_axis=None, time_axis_unit="s", mode="lines", *,
+                           viewport=None, per_curve=POINTS_PER_CURVE, total=POINTS_PER_GRAPH,
+                           sampling=True):
     """
     Generate a dynamic plot with subplots based on a list of variable dictionaries.
 
@@ -77,7 +80,7 @@ def main_time_plot_dynamic(df, variable_list, x_axis=None, time_axis_unit="s", m
     df (pd.DataFrame): DataFrame containing the dataset.
     variable_list (list): List of dictionaries with keys 'name', 'unit', and 'description'.
     Returns:
-    FigureResampler: Plotly figure object with dynamic resampling enabled.
+    Tuple containing the Plotly figure and graph style.
     """
     if x_axis is None:
         x_axis = {"name": "t", "unit": "s", "description": "Time"}
@@ -168,6 +171,8 @@ def main_time_plot_dynamic(df, variable_list, x_axis=None, time_axis_unit="s", m
             showlegend=True,
         )
     dynamic_height = f'{min(85 + (num_rows - 2) * 20, 150)}vh'  # Scale with num_rows
+    if sampling and mode == "lines":
+        fig = sample_figure(fig, viewport, per_curve, total)
     return fig, {'width': '100%', 'height': dynamic_height}
 
 
@@ -394,7 +399,9 @@ def main_surface_plot_dynamic_v2(
     return fig, {"width": "100%", "height": dynamic_height}
 
 
-def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_axis=None, axis_meta=None, time_axis_unit="s"):
+def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_axis=None,
+                        axis_meta=None, time_axis_unit="s", viewport=None,
+                        per_curve=POINTS_PER_CURVE, total=POINTS_PER_GRAPH, sampling=True):
     try:
         if df is None or df.empty:
             return go.Figure()
@@ -454,7 +461,7 @@ def cross_section_plots(df, variable_dict, slider=0, *, axes=("x", "y"), cross_a
             template="plotly_white",
         )
 
-        return fig
+        return sample_figure(fig, viewport, per_curve, total) if sampling else fig
 
     except Exception as e:  # noqa: BLE001 - return a fallback plot for invalid datasets
         print(f"error plotting dataset: {e}")

@@ -418,6 +418,7 @@ def get_main_page():
                                                 }
                                     ),
                                 ], type="default"),
+                                html.Div(id="main-line-status", role="status", className="text-muted small"),
                                 dcc.Loading(id="ls-loading-2", children=[
                                     dcc.Graph(
                                         id='sub-graph',
@@ -435,7 +436,8 @@ def get_main_page():
                                                 }
                                                 }
                                     ),
-                                ], type="default")
+                                ], type="default"),
+                                html.Div(id="sub-line-status", role="status", className="text-muted small"),
                             ],
                                 align="start",
                                 width=9)
@@ -526,5 +528,11 @@ def get_main_page():
             dcc.Store(id="benchmarks-list-store"),
             dcc.Store(id="metadata-request"),
             dcc.Store(id="metadata-handled-clicks", data={}),
-            dcc.Store(id="camera-sync-state")
+            dcc.Store(id="camera-sync-state"),
+            dcc.Store(id="plot-load-request"),
+            dcc.Store(id="plot-load-response"),
+            dcc.Store(id="plot-viewport-request"),
+            dcc.Store(id="plot-viewport-response"),
+            dcc.Store(id="plot-state"),
+            dcc.Store(id="plot-recover"),
         ])
