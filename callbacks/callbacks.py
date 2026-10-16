@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import ctx, html, no_update
 
+from callbacks.line_callbacks import register_line_callbacks
 from callbacks.plots import (
     cross_section_plots,
     main_surface_plot_dynamic_v2,
@@ -98,33 +99,6 @@ def get_callbacks(app):
         prevent_initial_call=True,
     )
 
-    @app.callback(dash.dependencies.Output('main-graph', 'figure'),
-                  dash.dependencies.Output('main-graph', 'style'),
-                  dash.dependencies.Output('sub-graph', 'figure'),
-                  dash.dependencies.Output('sub-graph', 'style'),
-                  [
-                      dash.dependencies.Input('show-graphs', "n_clicks"),
-                      dash.dependencies.Input('update-graphs', 'n_clicks'),
-                      dash.dependencies.Input('benchmark-params', 'data'), ],
-                  [
-                      dash.dependencies.State('file-type-selector', "value"),
-                      dash.dependencies.State('dataset-choice', "value"),
-                      dash.dependencies.State('receiver-selector', "value"),
-                      dash.dependencies.State('url', "search"),
-                      dash.dependencies.State('slider-gc-surface', 'value'),
-                      dash.dependencies.State('surface-plot-type', 'value'),
-                      dash.dependencies.State('surface-plot-var', "value"),
-                      dash.dependencies.State('time-xaxis-var', "value"),
-                      dash.dependencies.State('time-axis-unit', "value"),
-                      dash.dependencies.State('main-graph', 'figure'),
-                      dash.dependencies.State('upload-data', "contents"),
-                      dash.dependencies.State('upload-data', 'filename'),
-                      dash.dependencies.State('colorbar-min', 'value'),
-                      dash.dependencies.State('colorbar-max', 'value'),
-                      dash.dependencies.State('surface-cross-axis', 'value'),
-                      dash.dependencies.State('surface-switch-axis', 'value'),
-                  ]
-                  )
     def display_plots(ds_update_clicks, graph_control_nclick, benchmark_params, file_type_name, dataset_list, receiver,
                       benchmark_id, slider_gc_surface, surface_plot_type, surface_plot_var, x_axis_sel, time_axis_unit,
                       current_fig, upload_data,
@@ -218,6 +192,7 @@ def get_callbacks(app):
                 cross_axis=surface_cross_axis,
                 axis_meta=axis_meta,
                 time_axis_unit=time_axis_unit,
+                sampling=False,
             )
             sub_graph_style = {"display": "block"}
         else:
@@ -230,11 +205,14 @@ def get_callbacks(app):
                 x_axis,
                 time_axis_unit,
                 mode=trace_mode,
+                sampling=False,
             )
             sub_graph = go.Figure()
             sub_graph_style = {'display': 'none'}
 
         return main_graph, main_graph_style, sub_graph, sub_graph_style
+
+    register_line_callbacks(app, display_plots)
 
     # Generate metadata links for the selected datasets.
     @app.callback(
