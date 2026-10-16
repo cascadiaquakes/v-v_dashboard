@@ -24,15 +24,20 @@ const assert = require('node:assert/strict');
             browserErrors.push(message.params);
         }
     });
-    async function evaluate(expression) {
+    async function command(method, params = {}) {
         const result = await new Promise(resolve => {
             const id = ++sequence;
             pending.set(id, resolve);
-            ws.send(JSON.stringify({id, method: 'Runtime.evaluate',
-                params: {expression: `Promise.resolve(eval(${JSON.stringify(expression)}))
-                    .then(value => value instanceof Element ? true : value)`,
-                    returnByValue: true, awaitPromise: true}}));
+            ws.send(JSON.stringify({id, method, params}));
         });
+        if (result.error) throw new Error(JSON.stringify(result));
+        return result;
+    }
+    async function evaluate(expression) {
+        const result = await command('Runtime.evaluate', {
+            expression: `Promise.resolve(eval(${JSON.stringify(expression)}))
+                .then(value => value instanceof Element ? true : value)`,
+            returnByValue: true, awaitPromise: true});
         if (result.error || result.result.exceptionDetails) throw new Error(JSON.stringify(result));
         return result.result.result.value;
     }
@@ -46,12 +51,9 @@ const assert = require('node:assert/strict');
     }
     const graph = name => `document.querySelector('#${name}-graph .js-plotly-plot')`;
     const status = name => `(document.getElementById('${name}-line-status')?.textContent || '')`;
+    const spinner = "document.querySelector('#ls-loading-1 .dash-spinner')";
     try {
-        await new Promise(resolve => {
-            const id = ++sequence;
-            pending.set(id, resolve);
-            ws.send(JSON.stringify({id, method: 'Runtime.enable'}));
-        });
+        await command('Runtime.enable');
         browserErrors.length = 0;
         await evaluate('window.__smokeReload = true; location.reload()');
         await until(`window.__smokeReload !== true && ${status('main')}.includes('zoom in')`);
@@ -62,10 +64,26 @@ const assert = require('node:assert/strict');
         }
         console.log('Plotly.js:', await evaluate('Plotly.version'));
         assert.ok(await evaluate(`${graph('main')}._fullData[0].x.length <= 2000`));
+        await command('Network.enable');
+        await command('Network.emulateNetworkConditions', {offline: false, latency: 700,
+            downloadThroughput: -1, uploadThroughput: -1});
+        const previousRevision = await evaluate(`${graph('main')}.layout.uirevision`);
+        await evaluate("document.getElementById('update-graphs').click()");
+        await until(`!!${spinner}`);
+        assert.equal(await evaluate(`getComputedStyle(${graph('main')}).visibility`), 'visible');
+        assert.notEqual(await evaluate(`getComputedStyle(${spinner}.firstElementChild).animationName`), 'none');
+        await until(`${graph('main')}.layout.uirevision !== ${JSON.stringify(previousRevision)}`);
+        await until(`!${spinner}`);
+        console.log('PASS: loading animation during plot generation; previous plot remains visible');
         const started = Date.now();
         await evaluate(`Plotly.relayout(${graph('main')}, {
             'xaxis2.range': [49990, 50010], 'yaxis.range': [0, 20]})`);
+        await until(`!!${spinner}`);
+        assert.equal(await evaluate(`getComputedStyle(${graph('main')}).visibility`), 'visible');
         await until(`${status('main')}.includes('full resolution')`);
+        await until(`!${spinner}`);
+        await command('Network.emulateNetworkConditions', {offline: false, latency: 0,
+            downloadThroughput: -1, uploadThroughput: -1});
         assert.equal(await evaluate(`${graph('main')}._fullData[0].x.length`), 23);
         assert.deepEqual(await evaluate(`${graph('main')}.layout.yaxis.range`), [0, 20]);
         console.log('Browser zoom to original samples, ms:', Date.now() - started);

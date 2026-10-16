@@ -11,6 +11,7 @@ import pandas as pd
 from dash import dcc, html
 from flask_caching import Cache
 
+from app_layout import plot_loading
 from callbacks.line_callbacks import register_line_callbacks
 from callbacks.plots import cross_section_plots, main_time_plot_dynamic
 from callbacks.utils import set_cache
@@ -26,12 +27,14 @@ app.layout = html.Div([
     html.Button('Update Graphs', id='update-graphs'),
     dcc.Dropdown(id='dataset-choice', options=['one', 'two'], value=['one'], multi=True),
     dcc.Dropdown(id='time-axis-unit', options=['s', 'min'], value='s'),
-    dcc.Graph(id='main-graph'), html.Div(id='main-line-status'),
-    dcc.Graph(id='sub-graph'), html.Div(id='sub-line-status'),
+    plot_loading([
+        dcc.Graph(id='main-graph'), html.Div(id='main-line-status'),
+        dcc.Graph(id='sub-graph'), html.Div(id='sub-line-status'),
+    ]),
     dcc.Location(id='url'), dcc.Upload(id='upload-data'),
     dcc.Store(id='benchmark-params', data={'files': []}),
-    *[dcc.Store(id=name) for name in ['plot-load-request', 'plot-load-response',
-      'plot-viewport-request', 'plot-viewport-response', 'plot-state', 'plot-recover']],
+    *[dcc.Store(id=name) for name in ['plot-load-request', 'plot-viewport-request',
+      'plot-state', 'plot-recover']],
     *[dcc.Input(id=name, value=value) for name, value in [
       ('file-type-selector', 'line'), ('receiver-selector', 'receiver'),
       ('slider-gc-surface', 0), ('surface-plot-type', ''), ('surface-plot-var', 'v'),

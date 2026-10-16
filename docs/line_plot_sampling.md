@@ -60,3 +60,8 @@ JSON to 66 KB, with about 61 ms for overview sampling and 46 ms for a narrow
 full-resolution selection. Four million points across four curves took about
 171 ms/132 ms respectively. These exclude caching, network transfer, and browser
 rendering; tune budgets against representative datasets and deployment hardware.
+
+The native Dash loading spinner observes both server response stores and graph
+figures. It appears after 250 ms of pending work for plot generation or viewport
+refreshes, while keeping the existing plots visible. The browser check adds
+network latency to verify that the animation appears and clears after completion.
