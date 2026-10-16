@@ -30,7 +30,7 @@
       {
         "id": "TSHA-BP1",
         "prefix": "public_ds/TSHA-BP1/",
-        "status": "development",
+        "status": "public",
         "description_url": "https://depts.washington.edu/ptha/CopesHubTsunamis/LagoonCreek/"
       },
       {
@@ -72,7 +72,7 @@
       {
         "id": "THSA-BP1",
         "prefix": "upload/THSA-BP1/",
-        "status": "development",
+        "status": "public",
         "description_url": "https://depts.washington.edu/ptha/CopesHubTsunamis/LagoonCreek/"
       },
       {
